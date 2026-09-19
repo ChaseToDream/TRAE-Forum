@@ -2,8 +2,8 @@
 
 从 TRAE 官方中文社区抓取用户帖子，支持：
 - 异步并发抓取，大幅提升速度
-- 全量同步，每次强制获取所有帖子最新数据
-- 帖子详情刷新，确保标题、浏览量等字段实时同步
+- 增量更新，仅对新增或数据变化的帖子刷新详情
+- 未变化帖子复用已有详情，减少 API 调用
 - 结构化日志输出
 - Pydantic 数据校验
 - 进度条显示
@@ -533,24 +533,6 @@ def determine_posts_to_refresh(
             apply_existing_detail(post, existing)
             reused += 1
     return ids_to_refresh, reused
-
-def merge_posts(existing: dict, new_posts: list[PostItem]) -> list[PostItem]:
-    if not existing:
-        return new_posts
-
-    old_posts = {p["id"]: p for p in existing.get("posts", []) if p.get("id")}
-    merged: dict[int, dict] = {}
-
-    for post in new_posts:
-        merged[post.id] = post.model_dump()
-
-    for pid, post in old_posts.items():
-        if pid not in merged:
-            merged[pid] = post
-
-    result = [PostItem(**p) for p in merged.values()]
-    result.sort(key=lambda x: x.created_at, reverse=True)
-    return result
 
 # ──────────────────────────────────────────────
 # 输出

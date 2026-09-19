@@ -61,11 +61,13 @@ jobs:
 
       - name: Commit and push
         if: steps.check_changes.outputs.changed == 'true'
+        env:
+          TOTAL_POSTS: ${{ steps.verify.outputs.total_posts }}
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add data/posts.json
-          git commit -m "chore: update forum posts $(date +%Y-%m-%d) [${{ steps.verify.outputs.total_posts }} posts]"
+          git commit -m "chore: update forum posts $(date +%Y-%m-%d) [${TOTAL_POSTS} posts]"
           git push
 
       - name: Upload logs on failure

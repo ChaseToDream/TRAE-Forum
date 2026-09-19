@@ -41,7 +41,6 @@
   const state = {
     allPosts: [],
     filteredPosts: [],
-    categories: {},
     catConfig: {},
     activeCategory: 'all',
     searchQuery: '',
@@ -55,6 +54,7 @@
     calendarSelectedDate: null,
     refreshTimer: null,
     isRefreshing: false,
+    visibilityHooked: false,
     REFRESH_INTERVAL: 5 * 60 * 1000,
   };
 
@@ -91,9 +91,16 @@
     return fmtDate(s);
   }
 
+  // 仅放行 http(s) 绝对链接，阻断 javascript: 等伪协议进入 href/src
+  function safeUrl(u) {
+    if (!u) return '';
+    u = String(u);
+    return /^https?:\/\//i.test(u) ? u : '';
+  }
+
   function esc(s) {
     if (!s) return '';
-    return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
   }
 
   function debounce(fn, ms) {
@@ -226,7 +233,8 @@
 
     var bh = '';
     if (user.title) bh += '<span class="header-badge">🏷 ' + esc(user.title) + '</span>';
-    if (user.website) bh += '<span class="header-badge">🔗 <a href="' + esc(user.website) + '" target="_blank" rel="noopener">' + esc(user.website) + '</a></span>';
+    var ws = safeUrl(user.website);
+    if (ws) bh += '<span class="header-badge">🔗 <a href="' + esc(ws) + '" target="_blank" rel="noopener">' + esc(user.website) + '</a></span>';
     document.getElementById('badges').innerHTML = bh;
 
     document.getElementById('stats-bar').style.display = 'flex';
@@ -280,7 +288,7 @@
   // ──────────────────────────────────────────
   function buildItem(p) {
     var c = cc(p.category_name);
-    var h = '<a class="post-item" href="' + p.url + '" target="_blank" rel="noopener">';
+    var h = '<a class="post-item" href="' + esc(safeUrl(p.url)) + '" target="_blank" rel="noopener">';
     h += '<div class="post-item-title">' + esc(p.title);
     if (p.pinned) h += '<span class="post-item-pin">📌</span>';
     h += '</div>';
@@ -294,9 +302,10 @@
 
   function buildFlatCard(p, i) {
     var c = cc(p.category_name);
-    var h = '<a class="flat-card" href="' + p.url + '" target="_blank" rel="noopener" style="animation-delay:' + Math.min(i * 0.03, 0.5) + 's">';
-    if (p.image_url) {
-      h += '<div class="flat-card-img-wrap"><img class="flat-card-img" src="' + p.image_url + '" alt="" loading="lazy" onerror="this.parentElement.outerHTML=\'<div class=flat-card-placeholder style=background:' + c.soft + '>' + c.icon + '</div>\'"></div>';
+    var img = safeUrl(p.image_url);
+    var h = '<a class="flat-card" href="' + esc(safeUrl(p.url)) + '" target="_blank" rel="noopener" style="animation-delay:' + Math.min(i * 0.03, 0.5) + 's">';
+    if (img) {
+      h += '<div class="flat-card-img-wrap"><img class="flat-card-img" src="' + esc(img) + '" alt="" loading="lazy" onerror="this.parentElement.outerHTML=\'<div class=flat-card-placeholder style=background:' + c.soft + '>' + c.icon + '</div>\'"></div>';
     } else {
       h += '<div class="flat-card-placeholder" style="background:' + c.soft + '">' + c.icon + '</div>';
     }
@@ -639,8 +648,15 @@
 
     if (format === 'csv') {
       var headers = ['ID', '标题', '分类', '创建时间', '浏览', '点赞', '回复', '链接'];
+      function csvField(v) {
+        v = v == null ? '' : String(v);
+        // 以 = + - @ 开头的值会被 Excel 当公式执行，前缀单引号强制按文本处理
+        if (/^[=+\-@\t]/.test(v)) v = "'" + v;
+        if (/[",\r\n]/.test(v)) v = '"' + v.replace(/"/g, '""') + '"';
+        return v;
+      }
       var rows = data.map(function(p) {
-        return [p.id, '"' + (p.title||'').replace(/"/g,'""') + '"', p.category_name, p.created_at, p.views, p.like_count, p.reply_count, p.url].join(',');
+        return [p.id, p.title, p.category_name, p.created_at, p.views, p.like_count, p.reply_count, p.url].map(csvField).join(',');
       });
       content = '\uFEFF' + headers.join(',') + '\n' + rows.join('\n');
       filename = 'trae-posts.csv';
@@ -718,6 +734,20 @@
   }
 
   // ──────────────────────────────────────────
+  // 视图切换
+  // ──────────────────────────────────────────
+  function setView(view) {
+    state.currentView = view;
+    if (view === 'calendar') state.calendarSelectedDate = null;
+    document.getElementById('view-columns').classList.toggle('active', view === 'columns');
+    document.getElementById('view-flat').classList.toggle('active', view === 'flat');
+    document.getElementById('view-calendar').classList.toggle('active', view === 'calendar');
+    renderPosts();
+    savePrefs();
+    saveToURL();
+  }
+
+  // ──────────────────────────────────────────
   // 事件绑定
   // ──────────────────────────────────────────
   function setupEvents() {
@@ -766,34 +796,9 @@
     });
 
     // 视图切换
-    document.getElementById('view-columns').addEventListener('click', function() {
-      state.currentView = 'columns';
-      this.classList.add('active');
-      document.getElementById('view-flat').classList.remove('active');
-      document.getElementById('view-calendar').classList.remove('active');
-      renderPosts();
-      savePrefs();
-      saveToURL();
-    });
-    document.getElementById('view-flat').addEventListener('click', function() {
-      state.currentView = 'flat';
-      this.classList.add('active');
-      document.getElementById('view-columns').classList.remove('active');
-      document.getElementById('view-calendar').classList.remove('active');
-      renderPosts();
-      savePrefs();
-      saveToURL();
-    });
-    document.getElementById('view-calendar').addEventListener('click', function() {
-      state.currentView = 'calendar';
-      this.classList.add('active');
-      document.getElementById('view-columns').classList.remove('active');
-      document.getElementById('view-flat').classList.remove('active');
-      state.calendarSelectedDate = null;
-      renderPosts();
-      savePrefs();
-      saveToURL();
-    });
+    document.getElementById('view-columns').addEventListener('click', function() { setView('columns'); });
+    document.getElementById('view-flat').addEventListener('click', function() { setView('flat'); });
+    document.getElementById('view-calendar').addEventListener('click', function() { setView('calendar'); });
 
     // 主题切换
     document.getElementById('theme-toggle').addEventListener('click', toggleTheme);
@@ -832,13 +837,8 @@
       applyTheme(state.theme);
       document.getElementById('search-input').value = state.searchQuery;
       document.getElementById('sort-select').value = state.currentSort;
-      if (state.currentView === 'flat') {
-        document.getElementById('view-flat').click();
-      } else if (state.currentView === 'calendar') {
-        document.getElementById('view-calendar').click();
-      }
+      setView(state.currentView);
       updateCatTabs();
-      renderPosts();
     });
   }
 
@@ -858,7 +858,6 @@
         if (!data || !data.posts) return;
 
         state.allPosts = data.posts || [];
-        state.categories = data.categories || {};
 
         if (data.updated_at) {
           state.updatedAt = data.updated_at;
@@ -889,7 +888,11 @@
   }
 
   function showError(msg) {
-    document.getElementById('content').innerHTML = '<div class="error-state"><h3>⚠️ 加载失败</h3><p>' + esc(msg) + '</p><p style="margin-top:10px;font-size:0.8rem">请稍后重试，或访问 <a href="https://forum.trae.cn/" target="_blank" rel="noopener">TRAE官方论坛</a></p></div>';
+    var content = document.getElementById('content');
+    content.style.opacity = '1';
+    content.innerHTML = '<div class="error-state"><h3>⚠️ 加载失败</h3><p>' + esc(msg) + '</p><p style="margin-top:10px;font-size:0.8rem">请稍后重试，或访问 <a href="https://forum.trae.cn/" target="_blank" rel="noopener">TRAE官方论坛</a></p><button id="retry-btn" class="retry-btn">🔄 重试加载</button></div>';
+    var retry = document.getElementById('retry-btn');
+    if (retry) retry.addEventListener('click', function() { loadData(); });
   }
 
   // ──────────────────────────────────────────
@@ -919,6 +922,10 @@
     setupKeyboard();
 
     // 加载数据
+    loadData();
+  }
+
+  function loadData() {
     var content = document.getElementById('content');
     content.style.opacity = '0';
     content.style.transition = 'opacity 0.3s ease';
@@ -933,7 +940,6 @@
       .then(function(data) {
         if (!data || !data.posts) throw new Error('数据格式异常');
         state.allPosts = data.posts || [];
-        state.categories = data.categories || {};
 
         renderHeader(data);
         updateCatTabs();
@@ -942,14 +948,17 @@
         document.getElementById('toolbar').style.display = '';
 
         startAutoRefresh();
-        document.addEventListener('visibilitychange', function() {
-          if (document.hidden) {
-            stopAutoRefresh();
-          } else {
-            refreshData();
-            startAutoRefresh();
-          }
-        });
+        if (!state.visibilityHooked) {
+          state.visibilityHooked = true;
+          document.addEventListener('visibilitychange', function() {
+            if (document.hidden) {
+              stopAutoRefresh();
+            } else {
+              refreshData();
+              startAutoRefresh();
+            }
+          });
+        }
 
         setTimeout(function() { content.style.opacity = '1'; }, 50);
       })

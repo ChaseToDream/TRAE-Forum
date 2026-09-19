@@ -440,6 +440,14 @@ main { padding: 24px 0 48px; }
 .error-state h3 { color: var(--coral); margin-bottom: 8px; font-size: 1.1rem; }
 .error-state p { color: var(--text-secondary); font-size: 0.9rem; }
 .error-state a { color: var(--accent); }
+.retry-btn {
+  margin-top: 16px; padding: 8px 20px;
+  border-radius: 8px; border: 1.5px solid var(--accent-mid);
+  background: var(--accent-soft); color: var(--accent);
+  font-size: 0.85rem; cursor: pointer;
+  transition: all 0.2s var(--ease);
+}
+.retry-btn:hover { background: var(--accent-mid); color: #fff; }
 
 /* ── FOOTER ── */
 footer {
