@@ -1,6 +1,6 @@
 # 从零配置指南
 
-本文档将引导你从零开始配置 TRAE Forum Posts 项目，包括环境准备、数据爬取、自动更新和线上部署。
+本文档将引导你从零开始配置 TRAE-Forum 项目，包括环境准备、数据爬取、自动更新和线上部署。
 
 > 📖 如果你想快速了解项目功能，请返回 [README.md](./README.md)
 
@@ -139,8 +139,8 @@ Fork 后你将拥有独立副本，可以自由修改并享受 GitHub Actions �
 4. 克隆到本地：
 
 ```bash
-git clone https://github.com/你的用户名/TRAE-post.git
-cd TRAE-post
+git clone https://github.com/你的用户名/TRAE-Forum.git
+cd TRAE-Forum
 ```
 
 </td>
@@ -151,8 +151,8 @@ cd TRAE-post
 适合不想 Fork 的用户：
 
 ```bash
-git clone https://github.com/ChaseToDream/TRAE-post.git
-cd TRAE-post
+git clone https://github.com/ChaseToDream/TRAE-Forum.git
+cd TRAE-Forum
 
 # 移除原始远程仓库，添加你自己的
 git remote rename origin upstream
@@ -176,7 +176,6 @@ pip install -r requirements.txt
 
 | 依赖 | 用途 |
 |:-----|:-----|
-| `requests` | HTTP 请求（兼容保留） |
 | `aiohttp` | 异步 HTTP 请求，爬虫核心依赖 |
 | `tqdm` | 终端进度条显示 |
 | `pydantic` | 数据模型校验 |
@@ -230,7 +229,7 @@ python3 scripts/fetch_posts.py
   有效帖子: 39
   已排除: 7 (Bug 反馈, 产品建议)
   分类统计: {"技巧分享": 10, "互动交流": 18, ...}
-  输出文件: /path/to/TRAE-post/data/posts.json
+  输出文件: /path/to/TRAE-Forum/data/posts.json
 ```
 
 ### 3.3 本地预览
@@ -349,7 +348,7 @@ git push
 2. **Source** 选择 `Deploy from a branch`
 3. **Branch** 选择 `main`，目录选 `/ (root)`
 4. 点击 **Save**
-5. 等待几分钟，访问地址：`https://你的用户名.github.io/TRAE-post/`
+5. 等待几分钟，访问地址：`https://你的用户名.github.io/TRAE-Forum/`
 
 > 更新可能需要 1-3 分钟生效
 

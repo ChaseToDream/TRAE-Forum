@@ -1,14 +1,14 @@
 <div align="center">
 
-# TRAE-POST
+# TRAE-Forum
 
 **自动展示个人在 [TRAE 官方中文社区](https://forum.trae.cn/) 的帖子**
 
 支持分类筛选 · 关键词搜索 · 多视图切换 · 数据每 2 小时自动更新
 
-[![License](https://img.shields.io/github/license/ChaseToDream/TRAE-post?style=flat-square)](./LICENSE)
+[![License](https://img.shields.io/github/license/ChaseToDream/TRAE-Forum?style=flat-square)](./LICENSE)
 [![Python](https://img.shields.io/badge/Python-3.11-blue?style=flat-square)](./requirements.txt)
-[![Update](https://img.shields.io/github/actions/workflow/status/ChaseToDream/TRAE-post/update.yml?style=flat-square&label=auto-update)](./.github/workflows/update.yml)
+[![Update](https://img.shields.io/github/actions/workflow/status/ChaseToDream/TRAE-Forum/update.yml?style=flat-square&label=auto-update)](./.github/workflows/update.yml)
 
 </div>
 
@@ -68,8 +68,8 @@
 
 ```bash
 # 1. 克隆仓库
-git clone https://github.com/ChaseToDream/TRAE-post.git
-cd TRAE-post
+git clone https://github.com/ChaseToDream/TRAE-Forum.git
+cd TRAE-Forum
 
 # 2. 安装依赖
 pip install -r requirements.txt
@@ -184,7 +184,7 @@ FORUM_USERNAME=你的论坛用户名 python scripts/fetch_posts.py
 ## 📁 项目结构
 
 ```
-TRAE-post/
+TRAE-Forum/
 ├── index.html                  # 主页面入口
 ├── styles.css                  # 样式表（支持深色模式）
 ├── app.js                      # 前端应用逻辑

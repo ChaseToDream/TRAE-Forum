@@ -15,13 +15,12 @@ import logging
 import os
 import sys
 import time
-from dataclasses import dataclass, field
 from html import unescape
 from pathlib import Path
 from typing import Optional
 
 import aiohttp
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field
 from tqdm import tqdm
 
 # ──────────────────────────────────────────────
