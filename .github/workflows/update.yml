@@ -55,7 +55,7 @@ jobs:
 
       - name: Check for changes
         id: check_changes
-        if: steps.verify.outputs.total_posts
+        if: steps.verify.outputs.total_posts != ''
         run: |
           git diff --exit-code data/posts.json || echo "changed=true" >> $GITHUB_OUTPUT
 

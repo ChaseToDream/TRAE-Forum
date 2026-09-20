@@ -6,6 +6,8 @@
     "项目实战": { "color": "#7C5CFC", "soft": "#F0ECFF", "icon": "🛠️", "visible": true },
     "作品分享": { "color": "#F43F7A", "soft": "#FFF0F5", "icon": "🎨", "visible": true },
     "SOLO挑战赛专区": { "color": "#FF6B4A", "soft": "#FFF0EC", "icon": "🏆", "visible": true },
+    "SOLO技能创作赛": { "color": "#6366F1", "soft": "#EEF0FF", "icon": "🧩", "visible": true },
+    "AI充电站": { "color": "#0EA5E9", "soft": "#E6F6FE", "icon": "⚡", "visible": true },
     "官方公告": { "color": "#BF1E2E", "soft": "#FDE8EA", "icon": "📢", "visible": true },
     "新手入门": { "color": "#652D90", "soft": "#F0E8FA", "icon": "🌱", "visible": true },
     "官方活动": { "color": "#F7941D", "soft": "#FDF5E3", "icon": "🎉", "visible": true },

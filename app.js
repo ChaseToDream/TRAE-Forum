@@ -305,7 +305,7 @@
     var img = safeUrl(p.image_url);
     var h = '<a class="flat-card" href="' + esc(safeUrl(p.url)) + '" target="_blank" rel="noopener" style="animation-delay:' + Math.min(i * 0.03, 0.5) + 's">';
     if (img) {
-      h += '<div class="flat-card-img-wrap"><img class="flat-card-img" src="' + esc(img) + '" alt="" loading="lazy" onerror="this.parentElement.outerHTML=\'<div class=flat-card-placeholder style=background:' + c.soft + '>' + c.icon + '</div>\'"></div>';
+      h += '<div class="flat-card-img-wrap"><img class="flat-card-img" src="' + esc(img) + '" alt="" loading="lazy" data-cat="' + esc(p.category_name) + '"></div>';
     } else {
       h += '<div class="flat-card-placeholder" style="background:' + c.soft + '">' + c.icon + '</div>';
     }
@@ -682,6 +682,9 @@
   // ──────────────────────────────────────────
   function setupKeyboard() {
     document.addEventListener('keydown', function(e) {
+      // 放行带修饰键的组合（Ctrl+R 刷新、Ctrl+D 收藏、Ctrl+S 保存等浏览器行为）
+      if (e.ctrlKey || e.metaKey || e.altKey) return;
+
       // 忽略输入框内的按键
       if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') {
         if (e.key === 'Escape') {
@@ -830,6 +833,20 @@
     document.getElementById('back-top').addEventListener('click', function() {
       window.scrollTo({ top: 0, behavior: 'smooth' });
     });
+
+    // 卡片图片加载失败时替换为分类占位块（error 不冒泡，用捕获阶段委托）
+    document.addEventListener('error', function(e) {
+      var img = e.target;
+      if (!img || !img.classList || !img.classList.contains('flat-card-img')) return;
+      var wrap = img.parentElement;
+      if (!wrap) return;
+      var cfg = cc(img.dataset.cat || '');
+      var ph = document.createElement('div');
+      ph.className = 'flat-card-placeholder';
+      ph.style.background = cfg.soft;
+      ph.textContent = cfg.icon;
+      wrap.replaceWith(ph);
+    }, true);
 
     // URL hash 变化
     window.addEventListener('hashchange', function() {

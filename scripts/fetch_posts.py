@@ -602,8 +602,11 @@ def build_output_data(
 
 def save_output_file(output: OutputData) -> Path:
     OUTPUT_PATH.parent.mkdir(parents=True, exist_ok=True)
-    with open(OUTPUT_PATH, "w", encoding="utf-8") as f:
+    # 先写临时文件再原子替换，避免进程中断产生损坏的 posts.json
+    tmp_path = OUTPUT_PATH.with_suffix(".json.tmp")
+    with open(tmp_path, "w", encoding="utf-8") as f:
         json.dump(output.model_dump(by_alias=True), f, ensure_ascii=False, indent=2)
+    os.replace(tmp_path, OUTPUT_PATH)
     return OUTPUT_PATH
 
 # ──────────────────────────────────────────────
