@@ -103,6 +103,16 @@
     return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
   }
 
+  // 关键词高亮：按原文切分匹配，每段单独转义后输出，兼容 XSS 转义与大小写不敏感匹配
+  function highlight(text, q) {
+    if (!text) return '';
+    if (!q) return esc(text);
+    var re = new RegExp('(' + String(q).replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + ')', 'gi');
+    return String(text).split(re).map(function(part, i) {
+      return i % 2 === 1 ? '<mark>' + esc(part) + '</mark>' : esc(part);
+    }).join('');
+  }
+
   function debounce(fn, ms) {
     var timer;
     return function() {
@@ -186,7 +196,8 @@
     q = q.toLowerCase();
     return (p.title && p.title.toLowerCase().indexOf(q) !== -1) ||
            (p.excerpt && p.excerpt.toLowerCase().indexOf(q) !== -1) ||
-           (p.category_name && p.category_name.toLowerCase().indexOf(q) !== -1);
+           (p.category_name && p.category_name.toLowerCase().indexOf(q) !== -1) ||
+           (p.tags && p.tags.length && p.tags.some(function(t) { return t.toLowerCase().indexOf(q) !== -1; }));
   }
 
   // ──────────────────────────────────────────
@@ -300,7 +311,7 @@
   function buildItem(p) {
     var c = cc(p.category_name);
     var h = '<a class="post-item" href="' + esc(safeUrl(p.url)) + '" target="_blank" rel="noopener">';
-    h += '<div class="post-item-title">' + esc(p.title);
+    h += '<div class="post-item-title">' + highlight(p.title, state.searchQuery);
     if (p.pinned) h += '<span class="post-item-pin">📌</span>';
     h += '</div>';
     h += '<div class="post-item-meta">';
@@ -322,8 +333,8 @@
     }
     h += '<div class="flat-card-body">';
     h += '<span class="flat-card-cat" style="background:' + c.soft + ';color:' + c.color + '">' + esc(p.category_name) + '</span>';
-    h += '<div class="flat-card-title">' + esc(p.title) + '</div>';
-    if (p.excerpt) h += '<div class="flat-card-excerpt">' + esc(p.excerpt) + '</div>';
+    h += '<div class="flat-card-title">' + highlight(p.title, state.searchQuery) + '</div>';
+    if (p.excerpt) h += '<div class="flat-card-excerpt">' + highlight(p.excerpt, state.searchQuery) + '</div>';
     h += '<div class="flat-card-footer">';
     h += '<div class="flat-card-stats">';
     h += '<span>' + ICONS.eye + fmt(p.views) + '</span>';

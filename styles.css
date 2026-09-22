@@ -78,6 +78,14 @@ body {
 .container { max-width: 1440px; margin: 0 auto; padding: 0 24px; }
 a { color: inherit; text-decoration: none; }
 
+/* ── 搜索关键词高亮 ── */
+mark {
+  background: var(--amber-soft);
+  color: var(--amber);
+  border-radius: 3px;
+  padding: 0 1px;
+}
+
 /* ── HEADER ── */
 .site-header {
   background: var(--bg-white);
