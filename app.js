@@ -58,6 +58,8 @@
     refreshTimer: null,
     isRefreshing: false,
     visibilityHooked: false,
+    dataETag: null,           // posts.json 协商缓存：ETag
+    dataLastModified: null,   // posts.json 协商缓存：Last-Modified
     REFRESH_INTERVAL: 5 * 60 * 1000,
   };
 
@@ -1056,6 +1058,26 @@
   // ──────────────────────────────────────────
   // 数据刷新
   // ──────────────────────────────────────────
+  // 拉取 posts.json，支持 ETag / Last-Modified 条件请求（协商缓存）：
+  // - useConditional=true 时带上 If-None-Match / If-Modified-Since 头，
+  //   数据未变化时服务器返回 304（空响应体），显著减少轮询带宽
+  // - 服务器不支持条件请求时退化为普通 200 全量响应，行为无害
+  // - 移除了原先的 ?t= 时间戳参数，避免每次轮询都绕过浏览器缓存全量下载
+  function fetchData(useConditional) {
+    var headers = {};
+    if (useConditional) {
+      if (state.dataETag) headers['If-None-Match'] = state.dataETag;
+      if (state.dataLastModified) headers['If-Modified-Since'] = state.dataLastModified;
+    }
+    return fetch(DATA_PATH, { headers: headers }).then(function(r) {
+      if (r.status === 304) return { notModified: true };
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      state.dataETag = r.headers.get('ETag') || null;
+      state.dataLastModified = r.headers.get('Last-Modified') || null;
+      return r.json().then(function(data) { return { data: data }; });
+    });
+  }
+
   function refreshData() {
     if (state.isRefreshing) return;
     state.isRefreshing = true;
@@ -1063,9 +1085,12 @@
     var btn = document.getElementById('refresh-btn');
     if (btn) btn.classList.add('spinning');
 
-    fetch(DATA_PATH + '?t=' + Date.now())
-      .then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
-      .then(function(data) {
+    fetchData(true)
+      .then(function(res) {
+        // 304：数据无变化，跳过解析与重渲染
+        if (res.notModified) return;
+
+        var data = res.data;
         if (!data || !data.posts) return;
 
         state.allPosts = visiblePosts(data.posts || []);
@@ -1166,9 +1191,10 @@
       .then(function(r) { if (!r.ok) return {}; return r.json(); })
       .then(function(cfg) {
         state.catConfig = (cfg && cfg.categories) || {};
-        return fetch(DATA_PATH + '?t=' + Date.now());
+        // 首次加载使用全量请求（不带条件头），同时记录 ETag / Last-Modified 供后续轮询协商
+        return fetchData(false);
       })
-      .then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+      .then(function(res) { return res.data; })
       .then(function(data) {
         if (!data || !data.posts) throw new Error('数据格式异常');
         state.allPosts = visiblePosts(data.posts || []);
