@@ -535,6 +535,15 @@ footer a:hover { text-decoration: underline; }
   padding: 16px;
 }
 .chart-container canvas { width: 100% !important; max-height: 250px; }
+.charts-fallback {
+  grid-column: 1 / -1;
+  padding: 48px 20px;
+  text-align: center;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  background: var(--bg);
+  border-radius: var(--radius-md);
+}
 
 .cal-view {
   background: var(--bg-white);

@@ -34,6 +34,8 @@
   const STORAGE_KEY = 'trae-posts-prefs';
   const DEBOUNCE_MS = 200;
   const VIRTUAL_THRESHOLD = 100; // 超过此数量启用虚拟滚动
+  const CHART_JS_URL = 'https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js';
+  const CHART_JS_SRI = 'sha384-e6nUZLBkQ86NJ6TVVKAeSaK8jWa3NhkYWZFomE39AvDbQWeie9PlQqM3pmYW5d1g';
 
   // ──────────────────────────────────────────
   // 应用状态
@@ -592,8 +594,42 @@
     }
   }
 
+  // Chart.js 按需加载：首次打开统计面板才请求 CDN；Promise 缓存避免重复加载，失败后重开面板可重试
+  var chartJsLoader = null;
+
+  function loadChartJs() {
+    if (window.Chart) return Promise.resolve();
+    if (!chartJsLoader) {
+      chartJsLoader = new Promise(function(resolve, reject) {
+        var s = document.createElement('script');
+        s.src = CHART_JS_URL;
+        s.integrity = CHART_JS_SRI;
+        s.crossOrigin = 'anonymous';
+        s.onload = function() { resolve(); };
+        s.onerror = function() { chartJsLoader = null; reject(new Error('Chart.js 加载失败')); };
+        document.head.appendChild(s);
+      });
+    }
+    return chartJsLoader;
+  }
+
   function renderCharts() {
-    if (typeof Chart === 'undefined') return;
+    loadChartJs().then(function() {
+      // 面板可能在加载期间被关闭，绘制前确认仍处于打开状态
+      if (state.showStats) drawCharts();
+    }).catch(function(e) {
+      console.warn('Chart.js 加载失败:', e);
+      showChartsFallback();
+    });
+  }
+
+  function showChartsFallback() {
+    var charts = document.querySelector('.stats-charts');
+    if (charts) charts.innerHTML = '<div class="charts-fallback">📊 图表组件加载失败，请检查网络后重新打开统计面板重试</div>';
+  }
+
+  function drawCharts() {
+    if (typeof Chart === 'undefined') { showChartsFallback(); return; }
 
     // 分类分布饼图
     var catCtx = document.getElementById('chart-categories');
