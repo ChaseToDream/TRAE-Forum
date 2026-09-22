@@ -59,7 +59,7 @@
 
 ### 前置条件
 
-- Python 3.8+
+- Python 3.10+
 - Git
 - GitHub 账号
 - TRAE 论坛账号

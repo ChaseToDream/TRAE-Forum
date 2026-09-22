@@ -24,7 +24,7 @@
 
 ### 1.1 安装 Python
 
-项目需要 **Python 3.8+**。
+项目需要 **Python 3.10+**（受依赖 aiohttp 的版本要求约束）。
 
 <table>
 <tr>
