@@ -196,7 +196,7 @@ mark {
   transition: background 0.3s var(--ease);
 }
 .toolbar-inner {
-  display: flex; align-items: center; gap: 12px;
+  display: flex; flex-wrap: wrap; align-items: center; gap: 12px;
   max-width: 1440px; margin: 0 auto; padding: 0 24px;
 }
 .search-box { position: relative; width: 240px; flex-shrink: 0; }
@@ -281,6 +281,33 @@ mark {
   padding: 4px 12px; background: var(--accent-soft);
   border-radius: 12px; white-space: nowrap;
 }
+
+/* ── 标签筛选栏 ── */
+.tag-bar {
+  flex-basis: 100%;
+  display: flex; flex-wrap: wrap; align-items: center; gap: 6px;
+  padding-top: 10px; margin-top: 2px;
+  border-top: 1px dashed var(--border-light);
+}
+.tag-bar-label {
+  font-size: 0.72rem; color: var(--text-tertiary);
+  margin-right: 2px; flex-shrink: 0;
+}
+.tag-chip {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 3px 10px; border-radius: 999px;
+  border: 1.5px solid var(--border);
+  background: var(--bg-white); color: var(--text-secondary);
+  font-size: 0.75rem; cursor: pointer; user-select: none;
+  transition: all 0.15s var(--ease);
+}
+.tag-chip:hover { border-color: var(--accent-mid); color: var(--accent); background: var(--accent-soft); }
+.tag-chip.active {
+  background: var(--accent); border-color: var(--accent); color: #fff;
+  font-weight: 600;
+  box-shadow: 0 2px 8px rgba(79,110,247,0.25);
+}
+.tag-chip .cnt { font-size: 0.65rem; opacity: 0.6; font-weight: 600; }
 
 /* ── MAIN ── */
 main { padding: 24px 0 48px; }

@@ -45,6 +45,7 @@
     filteredPosts: [],
     catConfig: {},
     activeCategory: 'all',
+    activeTags: [],
     searchQuery: '',
     currentSort: 'newest',
     currentView: 'columns',
@@ -157,6 +158,7 @@
     var params = new URLSearchParams(hash);
     if (params.has('q')) state.searchQuery = params.get('q');
     if (params.has('cat')) state.activeCategory = params.get('cat');
+    if (params.has('tags')) state.activeTags = params.get('tags').split(',').filter(Boolean);
     if (params.has('sort')) state.currentSort = params.get('sort');
     if (params.has('view')) state.currentView = params.get('view');
     if (params.has('theme')) state.theme = params.get('theme');
@@ -166,6 +168,7 @@
     var params = new URLSearchParams();
     if (state.searchQuery) params.set('q', state.searchQuery);
     if (state.activeCategory !== 'all') params.set('cat', state.activeCategory);
+    if (state.activeTags.length) params.set('tags', state.activeTags.join(','));
     if (state.currentSort !== 'newest') params.set('sort', state.currentSort);
     if (state.currentView !== 'columns') params.set('view', state.currentView);
     if (state.theme !== 'light') params.set('theme', state.theme);
@@ -232,6 +235,15 @@
   function filterPosts() {
     state.filteredPosts = state.allPosts.filter(function(p) {
       if (state.activeCategory !== 'all' && p.category_name !== state.activeCategory) return false;
+      // 标签筛选：任一选中标签命中即保留（并集语义）
+      if (state.activeTags.length) {
+        var tags = p.tags || [];
+        var hit = false;
+        for (var i = 0; i < state.activeTags.length; i++) {
+          if (tags.indexOf(state.activeTags[i]) !== -1) { hit = true; break; }
+        }
+        if (!hit) return false;
+      }
       if (state.searchQuery && !matchSearch(p, state.searchQuery)) return false;
       return true;
     });
@@ -305,6 +317,45 @@
         searchResults.style.display = 'none';
       }
     }
+
+    // 标签栏与分类栏同步刷新
+    updateTagBar();
+  }
+
+  // ──────────────────────────────────────────
+  // 标签筛选栏
+  // 计数基于"除标签外的其他过滤条件已生效"的基准集合，选中标签即使计数为 0 也保留显示
+  // ──────────────────────────────────────────
+  function updateTagBar() {
+    var bar = document.getElementById('tag-list');
+    if (!bar) return;
+
+    var base = state.allPosts.filter(function(p) {
+      if (state.activeCategory !== 'all' && p.category_name !== state.activeCategory) return false;
+      if (state.searchQuery && !matchSearch(p, state.searchQuery)) return false;
+      return true;
+    });
+
+    var counts = {};
+    base.forEach(function(p) {
+      (p.tags || []).forEach(function(t) { counts[t] = (counts[t] || 0) + 1; });
+    });
+    state.activeTags.forEach(function(t) { if (!(t in counts)) counts[t] = 0; });
+
+    var sorted = Object.keys(counts).sort(function(a, b) { return counts[b] - counts[a]; });
+    if (!sorted.length) {
+      bar.style.display = 'none';
+      bar.innerHTML = '';
+      return;
+    }
+
+    var h = '<span class="tag-bar-label">🏷 标签</span>';
+    sorted.forEach(function(t) {
+      var active = state.activeTags.indexOf(t) !== -1;
+      h += '<button class="tag-chip' + (active ? ' active' : '') + '" data-tag="' + esc(t) + '" title="按标签筛选（可多选，并集生效）">' + esc(t) + ' <span class="cnt">' + counts[t] + '</span></button>';
+    });
+    bar.innerHTML = h;
+    bar.style.display = '';
   }
 
   // ──────────────────────────────────────────
@@ -895,6 +946,18 @@
       document.querySelectorAll('.cat-tab').forEach(function(el) { el.classList.remove('active'); });
       btn.classList.add('active');
       updateCatTabs();
+      renderPosts();
+      saveToURL();
+    });
+
+    // 标签筛选（多选，并集语义，再次点击取消）
+    document.getElementById('tag-list').addEventListener('click', function(e) {
+      var btn = e.target.closest('.tag-chip');
+      if (!btn) return;
+      var tag = btn.dataset.tag;
+      var i = state.activeTags.indexOf(tag);
+      if (i === -1) state.activeTags.push(tag); else state.activeTags.splice(i, 1);
+      updateTagBar();
       renderPosts();
       saveToURL();
     });
