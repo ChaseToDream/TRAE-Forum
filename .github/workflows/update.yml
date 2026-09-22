@@ -50,6 +50,10 @@ jobs:
             echo "::error::posts.json 数据无效"
             exit 1
           fi
+          if [ "$total" -eq 0 ]; then
+            echo "::error::posts.json 帖子数为 0，疑似抓取异常，拒绝提交部署"
+            exit 1
+          fi
           echo "total_posts=$total" >> $GITHUB_OUTPUT
           echo "✅ 验证通过: $total 条帖子"
 

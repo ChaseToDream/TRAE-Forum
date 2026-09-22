@@ -7,6 +7,7 @@
 - 结构化日志输出
 - Pydantic 数据校验
 - 进度条显示
+- 抓取失败保护：首页获取失败时中止运行，避免空数据覆盖已有 posts.json
 """
 
 import asyncio
@@ -230,7 +231,14 @@ async def fetch_user_profile(client: ForumClient, username: str) -> Optional[Use
         created_at=user.get("created_at", ""),
     )
 
-async def fetch_user_topics(client: ForumClient, username: str) -> list[dict]:
+async def fetch_user_topics(client: ForumClient, username: str) -> tuple[list[dict], bool]:
+    """抓取用户帖子列表。
+
+    返回 (topics, first_page_failed)：
+    - first_page_failed=True 表示首页请求失败或响应格式异常，结果不可信，
+      调用方应中止流程，避免用空数据覆盖已有的 posts.json。
+    - 首页正常但列表为空视为用户确实无帖子，属于正常结果。
+    """
     all_topics: list[dict] = []
     seen_ids: set[int] = set()
     page = 0
@@ -243,12 +251,18 @@ async def fetch_user_topics(client: ForumClient, username: str) -> list[dict]:
             url += f"?page={page}"
 
         data = await client.fetch_json(url)
-        if not data:
+        if data is None:
+            if page == 0:
+                log.error("首页请求失败（已重试 %d 次），无法区分'无帖子'与'抓取失败'", MAX_RETRIES)
+                return [], True
             log.warning("获取第 %d 页失败，停止翻页", page + 1)
             break
 
-        topic_list = data.get("topic_list", {})
+        topic_list = data.get("topic_list")
         if not isinstance(topic_list, dict):
+            if page == 0:
+                log.error("首页响应格式异常（缺少 topic_list），结果不可信，中止以保护已有数据")
+                return [], True
             log.warning("第 %d 页数据格式异常，停止翻页", page + 1)
             break
 
@@ -281,7 +295,7 @@ async def fetch_user_topics(client: ForumClient, username: str) -> list[dict]:
     if page >= MAX_PAGES:
         log.warning("达到最大翻页数 %d，数据可能不完整", MAX_PAGES)
 
-    return all_topics
+    return all_topics, False
 
 # ──────────────────────────────────────────────
 # 数据处理
@@ -650,7 +664,10 @@ async def main():
 
         # 5. 获取帖子列表（仅用于获取帖子ID和基础信息）
         log.info("[3/4] 获取用户帖子列表...")
-        raw_topics = await fetch_user_topics(client, username)
+        raw_topics, first_page_failed = await fetch_user_topics(client, username)
+        if first_page_failed:
+            log.error("帖子列表抓取失败，中止运行；已有 data/posts.json 保持不变")
+            sys.exit(1)
         log.info("共获取 %d 条帖子", len(raw_topics))
 
         # 6. 处理和筛选
