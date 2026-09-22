@@ -206,6 +206,14 @@
   }
 
   // ──────────────────────────────────────────
+  // config.visible 前端二次过滤
+  // ──────────────────────────────────────────
+  // 爬虫端已按 visible 排除分类，此处兜底处理 posts.json 与 config.json 短暂不同步的窗口期
+  function visiblePosts(posts) {
+    return posts.filter(function(p) { return cc(p.category_name).visible !== false; });
+  }
+
+  // ──────────────────────────────────────────
   // 过滤帖子
   // ──────────────────────────────────────────
   function filterPosts() {
@@ -237,14 +245,17 @@
     if (ws) bh += '<span class="header-badge">🔗 <a href="' + esc(ws) + '" target="_blank" rel="noopener">' + esc(user.website) + '</a></span>';
     document.getElementById('badges').innerHTML = bh;
 
+    var visible = visiblePosts(data.posts || []);
     document.getElementById('stats-bar').style.display = 'flex';
-    document.getElementById('stat-posts').textContent = data.total_posts || 0;
+    document.getElementById('stat-posts').textContent = visible.length;
 
     var tv = 0, tl = 0;
-    (data.posts||[]).forEach(function(p) { tv += p.views||0; tl += p.like_count||0; });
+    visible.forEach(function(p) { tv += p.views||0; tl += p.like_count||0; });
     document.getElementById('stat-views').textContent = fmt(tv);
     document.getElementById('stat-likes').textContent = fmt(tl);
-    document.getElementById('stat-cats').textContent = Object.keys(data.categories||{}).length;
+    var catSet = {};
+    visible.forEach(function(p) { catSet[p.category_name] = true; });
+    document.getElementById('stat-cats').textContent = Object.keys(catSet).length;
 
     if (data.updated_at) {
       state.updatedAt = data.updated_at;
@@ -874,7 +885,7 @@
       .then(function(data) {
         if (!data || !data.posts) return;
 
-        state.allPosts = data.posts || [];
+        state.allPosts = visiblePosts(data.posts || []);
 
         if (data.updated_at) {
           state.updatedAt = data.updated_at;
@@ -956,7 +967,7 @@
       .then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
       .then(function(data) {
         if (!data || !data.posts) throw new Error('数据格式异常');
-        state.allPosts = data.posts || [];
+        state.allPosts = visiblePosts(data.posts || []);
 
         renderHeader(data);
         updateCatTabs();
