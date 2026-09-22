@@ -324,6 +324,18 @@ def resolve_image_url(image_url: str) -> str:
         return FORUM_BASE + image_url
     return FORUM_BASE + "/" + image_url
 
+def normalize_tags(raw_tags) -> list[str]:
+    """将论坛返回的 tags（字符串或字典混合列表）规范化为字符串列表。"""
+    tags: list[str] = []
+    for t in raw_tags or []:
+        if isinstance(t, dict):
+            tag_name = t.get("name", "")
+            if tag_name:
+                tags.append(tag_name)
+        elif isinstance(t, str) and t:
+            tags.append(t)
+    return tags
+
 def truncate_excerpt(excerpt: str, max_len: int = MAX_EXCERPT_LEN) -> str:
     if not excerpt:
         return ""
@@ -336,14 +348,7 @@ def process_topic(topic: dict, cat_map: dict, sub_cat_map: dict) -> PostItem:
     raw_cat_id = topic.get("category_id", 0)
     cat_id, cat_name = resolve_category_id(raw_cat_id, cat_map, sub_cat_map)
 
-    tags: list[str] = []
-    for t in topic.get("tags", []):
-        if isinstance(t, dict):
-            tag_name = t.get("name", "")
-            if tag_name:
-                tags.append(tag_name)
-        elif isinstance(t, str) and t:
-            tags.append(t)
+    tags = normalize_tags(topic.get("tags", []))
 
     return PostItem(
         id=topic.get("id", 0),
@@ -447,22 +452,16 @@ def apply_refresh_data(posts: list[PostItem], refresh_data: dict[int, dict], cat
             p.reply_count = detail.get("reply_count", p.reply_count)
             p.posts_count = detail.get("posts_count", p.posts_count)
             p.last_posted_at = detail.get("last_posted_at", p.last_posted_at)
-            p.excerpt = detail.get("excerpt", p.excerpt)
+            if detail.get("excerpt"):
+                p.excerpt = truncate_excerpt(detail["excerpt"])
             if detail.get("image_url"):
                 p.image_url = resolve_image_url(detail["image_url"])
             if detail.get("category_id") and cat_map is not None and sub_cat_map is not None:
                 resolved_id, cat_name = resolve_category_id(detail["category_id"], cat_map, sub_cat_map)
                 p.category_id = resolved_id
                 p.category_name = cat_name
-            if detail.get("tags") and isinstance(detail["tags"], list):
-                tags = []
-                for t in detail["tags"]:
-                    if isinstance(t, dict):
-                        tag_name = t.get("name", "")
-                        if tag_name:
-                            tags.append(tag_name)
-                    elif isinstance(t, str) and t:
-                        tags.append(t)
+            if detail.get("tags"):
+                tags = normalize_tags(detail["tags"])
                 if tags:
                     p.tags = tags
             p.pinned = detail.get("pinned", p.pinned)
