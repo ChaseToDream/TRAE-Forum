@@ -234,46 +234,12 @@ python3 scripts/fetch_posts.py
 
 ### 3.3 本地预览
 
-直接用浏览器打开项目根目录的 `index.html` 文件即可预览。
-
-<table>
-<tr>
-<td width="33%">
-
-**🪟 Windows**
-
-```powershell
-start index.html
-```
-
-</td>
-<td width="33%">
-
-**🍎 macOS**
+页面启用了 CSP 安全策略并需发起数据请求，请通过本地服务器预览（直接双击打开 `index.html` 将无法加载脚本和数据）：
 
 ```bash
-open index.html
+python -m http.server 8080
+# 然后访问 http://localhost:8080
 ```
-
-</td>
-<td width="33%">
-
-**🐧 Linux**
-
-```bash
-xdg-open index.html
-```
-
-</td>
-</tr>
-</table>
-
-> ⚠️ 部分浏览器可能阻止 AJAX 请求本地文件，如遇此问题可使用本地服务器：
->
-> ```bash
-> python -m http.server 8080
-> # 然后访问 http://localhost:8080
-> ```
 
 ### 3.4 提交初始数据
 

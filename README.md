@@ -82,7 +82,8 @@ python scripts/fetch_posts.py
 # macOS / Linux
 FORUM_USERNAME=你的论坛用户名 python scripts/fetch_posts.py
 
-# 4. 本地预览 — 用浏览器打开 index.html 即可
+# 4. 本地预览 — 启动本地服务器后访问 http://localhost:8080
+python -m http.server 8080
 ```
 
 > 📖 完整配置指南请参考 **[SETUP.md](./SETUP.md)**

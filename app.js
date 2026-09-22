@@ -871,6 +871,26 @@
     document.getElementById('export-csv').addEventListener('click', function() { exportData('csv'); });
     document.getElementById('export-json').addEventListener('click', function() { exportData('json'); });
 
+    // 导出菜单下拉
+    var exportBtn = document.getElementById('export-menu-btn');
+    var exportDropdown = document.getElementById('export-dropdown');
+    exportBtn.addEventListener('click', function(e) {
+      e.stopPropagation();
+      exportDropdown.style.display = exportDropdown.style.display === 'none' ? 'block' : 'none';
+    });
+    document.addEventListener('click', function() {
+      exportDropdown.style.display = 'none';
+    });
+    exportDropdown.addEventListener('click', function(e) {
+      e.stopPropagation();
+      exportDropdown.style.display = 'none';
+    });
+
+    // 快捷键提示（2s 后显示，8s 后隐藏）
+    var hint = document.getElementById('shortcut-hint');
+    setTimeout(function() { hint.classList.add('show'); }, 2000);
+    setTimeout(function() { hint.classList.remove('show'); }, 8000);
+
     // 统计面板
     document.getElementById('stats-toggle').addEventListener('click', function() {
       state.showStats = !state.showStats;
