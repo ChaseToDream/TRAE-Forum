@@ -23,6 +23,8 @@
     close: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>',
     calendar: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>',
     refresh: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>',
+    star: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>',
+    starFilled: '<svg viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>',
   };
 
   // ──────────────────────────────────────────
@@ -32,6 +34,7 @@
   const CONFIG_PATH = 'config.json';
   const DEFAULT_CAT = { color: '#9BA3B5', soft: '#EDF0F7', icon: '📁', visible: true };
   const STORAGE_KEY = 'trae-posts-prefs';
+  const FAV_CAT = '__fav'; // "我的收藏"虚拟分类标识，不与论坛分类名冲突
   const DEBOUNCE_MS = 200;
   const VIRTUAL_THRESHOLD = 100; // 超过此数量启用虚拟滚动
   const CHART_JS_URL = 'https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js';
@@ -51,6 +54,7 @@
     currentView: 'columns',
     theme: 'light',
     updatedAt: '',
+    favorites: new Set(), // 本地收藏的帖子 ID 集合
     showStats: false,
     calendarYear: new Date().getFullYear(),
     calendarMonth: new Date().getMonth(),
@@ -137,6 +141,7 @@
         if (prefs.theme) state.theme = prefs.theme;
         if (prefs.currentSort) state.currentSort = prefs.currentSort;
         if (prefs.currentView) state.currentView = prefs.currentView;
+        if (Array.isArray(prefs.favorites)) state.favorites = new Set(prefs.favorites);
       }
     } catch(e) { /* ignore */ }
   }
@@ -147,6 +152,7 @@
         theme: state.theme,
         currentSort: state.currentSort,
         currentView: state.currentView,
+        favorites: Array.from(state.favorites),
       }));
     } catch(e) { /* ignore */ }
   }
@@ -169,7 +175,8 @@
   function saveToURL() {
     var params = new URLSearchParams();
     if (state.searchQuery) params.set('q', state.searchQuery);
-    if (state.activeCategory !== 'all') params.set('cat', state.activeCategory);
+    // 收藏视图不进 URL：收藏数据仅存于本机 localStorage，分享该状态无意义
+    if (state.activeCategory !== 'all' && state.activeCategory !== FAV_CAT) params.set('cat', state.activeCategory);
     if (state.activeTags.length) params.set('tags', state.activeTags.join(','));
     if (state.currentSort !== 'newest') params.set('sort', state.currentSort);
     if (state.currentView !== 'columns') params.set('view', state.currentView);
@@ -236,7 +243,12 @@
   // ──────────────────────────────────────────
   function filterPosts() {
     state.filteredPosts = state.allPosts.filter(function(p) {
-      if (state.activeCategory !== 'all' && p.category_name !== state.activeCategory) return false;
+      if (state.activeCategory === FAV_CAT) {
+        // 收藏视图：仅保留本地收藏的帖子
+        if (!state.favorites.has(p.id)) return false;
+      } else if (state.activeCategory !== 'all' && p.category_name !== state.activeCategory) {
+        return false;
+      }
       // 标签筛选：任一选中标签命中即保留（并集语义）
       if (state.activeTags.length) {
         var tags = p.tags || [];
@@ -301,6 +313,14 @@
 
     var h = '<button class="cat-tab' + (state.activeCategory === 'all' ? ' active' : '') + '" data-cat="all" aria-pressed="' + (state.activeCategory === 'all') + '"><span class="dot" style="background:linear-gradient(135deg,var(--accent),var(--teal))"></span>全部 <span class="cnt">' + filtered.length + '</span></button>';
 
+    // "我的收藏"虚拟分类：仅在存在收藏时显示，计数基于当前搜索命中的收藏帖
+    if (state.favorites.size > 0) {
+      var favCount = 0;
+      filtered.forEach(function(p) { if (state.favorites.has(p.id)) favCount++; });
+      var favActive = state.activeCategory === FAV_CAT;
+      h += '<button class="cat-tab fav-tab' + (favActive ? ' active' : '') + '" data-cat="' + FAV_CAT + '" aria-pressed="' + favActive + '" title="查看本地收藏的帖子"><span class="dot" style="background:var(--amber)"></span>⭐ 收藏 <span class="cnt">' + favCount + '</span></button>';
+    }
+
     var grouped = {};
     filtered.forEach(function(p) { grouped[p.category_name] = (grouped[p.category_name] || 0) + 1; });
     var sorted = Object.entries(grouped).sort(function(a,b){return b[1]-a[1];});
@@ -333,7 +353,11 @@
     if (!bar) return;
 
     var base = state.allPosts.filter(function(p) {
-      if (state.activeCategory !== 'all' && p.category_name !== state.activeCategory) return false;
+      if (state.activeCategory === FAV_CAT) {
+        if (!state.favorites.has(p.id)) return false;
+      } else if (state.activeCategory !== 'all' && p.category_name !== state.activeCategory) {
+        return false;
+      }
       if (state.searchQuery && !matchSearch(p, state.searchQuery)) return false;
       return true;
     });
@@ -361,11 +385,42 @@
   }
 
   // ──────────────────────────────────────────
+  // 本地收藏
+  // ──────────────────────────────────────────
+  function favBtnHtml(p) {
+    var active = state.favorites.has(p.id);
+    return '<button class="fav-btn' + (active ? ' active' : '') + '" data-fav-id="' + p.id + '" aria-pressed="' + active + '" aria-label="' + (active ? '取消收藏' : '收藏') + '" title="收藏（仅保存在本机）">' + (active ? ICONS.starFilled : ICONS.star) + '</button>';
+  }
+
+  function toggleFavorite(id) {
+    id = Number(id);
+    if (state.favorites.has(id)) state.favorites.delete(id); else state.favorites.add(id);
+    savePrefs();
+
+    // 局部更新同帖按钮状态，避免整体重渲染导致滚动位置丢失
+    var active = state.favorites.has(id);
+    document.querySelectorAll('[data-fav-id="' + id + '"]').forEach(function(b) {
+      b.classList.toggle('active', active);
+      b.setAttribute('aria-pressed', String(active));
+      b.setAttribute('aria-label', active ? '取消收藏' : '收藏');
+      b.innerHTML = active ? ICONS.starFilled : ICONS.star;
+    });
+
+    // 收藏视图下帖子集合随收藏变化需要重渲染；清空收藏时自动切回"全部"
+    if (state.activeCategory === FAV_CAT) {
+      if (!state.favorites.size) state.activeCategory = 'all';
+      renderPosts();
+    }
+    updateCatTabs();
+  }
+
+  // ──────────────────────────────────────────
   // 帖子卡片模板
   // ──────────────────────────────────────────
   function buildItem(p) {
     var c = cc(p.category_name);
     var h = '<a class="post-item" href="' + esc(safeUrl(p.url)) + '" target="_blank" rel="noopener">';
+    h += favBtnHtml(p);
     h += '<div class="post-item-title">' + highlight(p.title, state.searchQuery);
     if (p.pinned) h += '<span class="post-item-pin">📌</span>';
     h += '</div>';
@@ -381,6 +436,7 @@
     var c = cc(p.category_name);
     var img = safeUrl(p.image_url);
     var h = '<a class="flat-card" href="' + esc(safeUrl(p.url)) + '" target="_blank" rel="noopener" style="animation-delay:' + Math.min(i * 0.03, 0.5) + 's">';
+    h += favBtnHtml(p);
     if (img) {
       h += '<div class="flat-card-img-wrap"><img class="flat-card-img" src="' + esc(img) + '" alt="" loading="lazy" data-cat="' + esc(p.category_name) + '"></div>';
     } else {
@@ -976,6 +1032,15 @@
       updateTagBar();
       renderPosts();
       saveToURL();
+    });
+
+    // 收藏按钮（委托至 content 容器，卡片/列表/日历视图通用；阻止冒泡避免触发外层链接跳转）
+    document.getElementById('content').addEventListener('click', function(e) {
+      var btn = e.target.closest('.fav-btn');
+      if (!btn) return;
+      e.preventDefault();
+      e.stopPropagation();
+      toggleFavorite(btn.dataset.favId);
     });
 
     // 排序

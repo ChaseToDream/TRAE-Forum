@@ -813,6 +813,44 @@ footer a:hover { text-decoration: underline; }
 .skeleton-item-meta { display: flex; gap: 10px; margin-top: 6px; }
 .skeleton-meta-item { height: 12px; width: 40px; }
 
+/* ── 本地收藏按钮 ── */
+.post-item { position: relative; }
+.flat-card { position: relative; }
+.fav-btn {
+  position: absolute; top: 8px; right: 8px;
+  width: 28px; height: 28px;
+  display: flex; align-items: center; justify-content: center;
+  padding: 0; border: none; border-radius: 50%;
+  background: transparent;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  opacity: 0.55;
+  z-index: 2;
+  transition: opacity 0.2s var(--ease), color 0.2s var(--ease), transform 0.15s var(--ease), background 0.2s var(--ease);
+}
+.fav-btn svg { width: 16px; height: 16px; }
+.fav-btn:hover { opacity: 1; color: var(--amber); background: var(--amber-soft); }
+.fav-btn:active { transform: scale(0.88); }
+.fav-btn.active { opacity: 1; color: var(--amber); }
+.post-item .fav-btn { top: 8px; right: 6px; width: 24px; height: 24px; opacity: 0.4; }
+.post-item .fav-btn svg { width: 14px; height: 14px; }
+.post-item .fav-btn:hover { opacity: 1; }
+.post-item .fav-btn.active { opacity: 1; }
+.post-item-title { padding-right: 26px; }
+/* 图片卡片上使用半透明白底保证对比度 */
+.flat-card .fav-btn {
+  top: 10px; right: 10px;
+  background: rgba(255, 255, 255, 0.85);
+  color: var(--text-secondary);
+  opacity: 0.9;
+  box-shadow: var(--shadow-sm);
+}
+/* 触屏设备无 hover，常显以提高可发现性 */
+@media (hover: none) {
+  .fav-btn { opacity: 0.8; }
+  .post-item .fav-btn { opacity: 0.7; }
+}
+
 /* ── 焦点样式 ── */
 .post-item:focus-visible,
 .flat-card:focus-visible {
@@ -820,6 +858,7 @@ footer a:hover { text-decoration: underline; }
 }
 .cat-tab:focus-visible,
 .tag-chip:focus-visible,
+.fav-btn:focus-visible,
 .view-btn:focus-visible,
 .sort-select:focus-visible,
 .search-clear:focus-visible,
