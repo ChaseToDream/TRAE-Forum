@@ -588,10 +588,63 @@
 
     if (state.showStats) {
       panel.classList.add('show');
+      renderHeatmap();
       renderCharts();
     } else {
       panel.classList.remove('show');
     }
+  }
+
+  // ──────────────────────────────────────────
+  // 发帖热力图（GitHub 风格，近 52 周）
+  // 纯前端聚合 created_at，不依赖 Chart.js，CDN 失败时仍可用
+  // ──────────────────────────────────────────
+  function renderHeatmap() {
+    var wrap = document.getElementById('heatmap');
+    var monthsEl = document.getElementById('hm-months');
+    if (!wrap || !monthsEl) return;
+
+    // 按本地日期聚合每日发帖数
+    var counts = {};
+    state.allPosts.forEach(function(p) {
+      if (!p.created_at) return;
+      var d = new Date(p.created_at);
+      var key = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+      counts[key] = (counts[key] || 0) + 1;
+    });
+
+    var today = new Date();
+    var end = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    var start = new Date(end);
+    start.setDate(start.getDate() - 364);
+    start.setDate(start.getDate() - start.getDay()); // 对齐到周日
+
+    var cells = '';
+    var monthLabels = [];
+    var lastMonth = -1;
+    var idx = 0;
+    var d = new Date(start);
+    while (d <= end) {
+      var key = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+      var n = counts[key] || 0;
+      var lvl = n >= 5 ? 4 : n; // 阈值：1/2/3/4+
+      cells += '<span class="hm-cell hm-l' + lvl + '" title="' + key + '：' + n + ' 篇帖子"></span>';
+      if (d.getMonth() !== lastMonth) {
+        lastMonth = d.getMonth();
+        var col = Math.floor(idx / 7);
+        if (col >= 1) monthLabels.push({ col: col, name: (d.getMonth() + 1) + '月' });
+      }
+      idx++;
+      d.setDate(d.getDate() + 1);
+    }
+    wrap.innerHTML = cells;
+
+    // 月份标签：单元格步长 12px + 3px 间距 = 15px，绝对定位到对应周列
+    var monthsHtml = '';
+    monthLabels.forEach(function(m) {
+      monthsHtml += '<span style="left:' + (m.col * 15) + 'px">' + m.name + '</span>';
+    });
+    monthsEl.innerHTML = monthsHtml;
   }
 
   // Chart.js 按需加载：首次打开统计面板才请求 CDN；Promise 缓存避免重复加载，失败后重开面板可重试

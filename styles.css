@@ -545,6 +545,41 @@ footer a:hover { text-decoration: underline; }
   border-radius: var(--radius-md);
 }
 
+/* ── 发帖热力图 ── */
+.heatmap-section { margin-top: 24px; }
+.heatmap-header {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 10px;
+}
+.heatmap-title { font-size: 0.9rem; font-weight: 700; color: var(--text-primary); }
+.heatmap-legend {
+  display: inline-flex; align-items: center; gap: 3px;
+  font-size: 0.7rem; color: var(--text-tertiary);
+}
+.heatmap-legend .hm-cell { width: 10px; height: 10px; }
+.heatmap-wrap { overflow-x: auto; padding-bottom: 4px; }
+.hm-months { position: relative; height: 15px; margin-left: 26px; }
+.hm-months span {
+  position: absolute; top: 0;
+  font-size: 0.65rem; color: var(--text-tertiary); white-space: nowrap;
+}
+.hm-body { display: flex; gap: 6px; }
+.hm-weekdays {
+  display: flex; flex-direction: column; gap: 3px;
+  width: 20px; flex-shrink: 0;
+}
+.hm-weekdays span { height: 12px; line-height: 12px; font-size: 0.6rem; color: var(--text-tertiary); }
+.heatmap {
+  display: grid; grid-auto-flow: column;
+  grid-template-rows: repeat(7, 12px); grid-auto-columns: 12px; gap: 3px;
+}
+.hm-cell { border-radius: 2px; background: var(--border-light); }
+.hm-l1 { background: color-mix(in srgb, var(--accent) 25%, transparent); }
+.hm-l2 { background: color-mix(in srgb, var(--accent) 45%, transparent); }
+.hm-l3 { background: color-mix(in srgb, var(--accent) 70%, transparent); }
+.hm-l4 { background: var(--accent); }
+.hm-cell:hover { outline: 1px solid var(--text-secondary); }
+
 .cal-view {
   background: var(--bg-white);
   border-radius: var(--radius-lg);
