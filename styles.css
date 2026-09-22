@@ -78,6 +78,16 @@ body {
 .container { max-width: 1440px; margin: 0 auto; padding: 0 24px; }
 a { color: inherit; text-decoration: none; }
 
+/* ── 动效降级：尊重系统"减少动态效果"偏好 ── */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+  html { scroll-behavior: auto; }
+}
+
 /* ── 搜索关键词高亮 ── */
 mark {
   background: var(--amber-soft);
@@ -809,8 +819,17 @@ footer a:hover { text-decoration: underline; }
   outline: 2px solid var(--accent); outline-offset: 2px;
 }
 .cat-tab:focus-visible,
+.tag-chip:focus-visible,
 .view-btn:focus-visible,
-.sort-select:focus-visible {
+.sort-select:focus-visible,
+.search-clear:focus-visible,
+.refresh-btn:focus-visible,
+.theme-toggle:focus-visible,
+.export-btn:focus-visible,
+.back-top:focus-visible,
+.cal-day:focus-visible,
+.cal-nav-btn:focus-visible,
+.stats-panel-close:focus-visible {
   outline: 2px solid var(--accent); outline-offset: 2px;
 }
 

@@ -28,19 +28,19 @@
       <div class="header-stat"><div class="header-stat-num" id="stat-cats">0</div><div class="header-stat-label">分类</div></div>
     </div>
     <div class="header-actions">
-      <button class="refresh-btn" id="refresh-btn" title="刷新数据 (R)">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+      <button class="refresh-btn" id="refresh-btn" title="刷新数据 (R)" aria-label="刷新数据">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
       </button>
-      <button class="theme-toggle" id="theme-toggle" title="切换主题 (D)">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+      <button class="theme-toggle" id="theme-toggle" title="切换主题 (D)" aria-label="切换主题">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
       </button>
-      <button class="export-btn" id="stats-toggle" title="统计图表 (S)">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 20V10M12 20V4M6 20v-6"/></svg>
+      <button class="export-btn" id="stats-toggle" title="统计图表 (S)" aria-label="统计图表">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M18 20V10M12 20V4M6 20v-6"/></svg>
         统计
       </button>
       <div style="position:relative">
-        <button class="export-btn" id="export-menu-btn" title="导出数据">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        <button class="export-btn" id="export-menu-btn" title="导出数据" aria-label="导出数据菜单" aria-haspopup="true" aria-expanded="false">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
           导出
         </button>
         <div id="export-dropdown" style="display:none;position:absolute;right:0;top:100%;margin-top:4px;background:var(--bg-white);border:1px solid var(--border);border-radius:8px;padding:4px;box-shadow:var(--shadow-md);z-index:200;min-width:120px">
@@ -52,18 +52,18 @@
   </div>
 </header>
 
-<nav class="toolbar" id="toolbar" style="display:none">
+<nav class="toolbar" id="toolbar" style="display:none" aria-label="帖子筛选工具栏">
   <div class="toolbar-inner">
     <div class="search-box">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
-      <input type="text" id="search-input" placeholder="搜索帖子标题、内容或分类...  按 / 聚焦">
-      <button class="search-clear" id="search-clear" title="清除搜索 (Esc)">&times;</button>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+      <input type="text" id="search-input" placeholder="搜索帖子标题、内容或分类...  按 / 聚焦" aria-label="搜索帖子">
+      <button class="search-clear" id="search-clear" title="清除搜索 (Esc)" aria-label="清除搜索">&times;</button>
     </div>
-    <span class="search-results" id="search-results" style="display:none"></span>
+    <span class="search-results" id="search-results" style="display:none" aria-live="polite"></span>
     <div class="cat-tabs" id="cat-list"></div>
     <div class="tag-bar" id="tag-list" style="display:none"></div>
     <div class="toolbar-actions">
-      <select class="sort-select" id="sort-select">
+      <select class="sort-select" id="sort-select" aria-label="排序方式">
         <option value="newest">最新发布</option>
         <option value="oldest">最早发布</option>
         <option value="popular">最多浏览</option>
@@ -71,14 +71,14 @@
         <option value="replies">最多回复</option>
       </select>
       <div class="view-toggle">
-        <button class="view-btn active" id="view-columns" title="分类视图 (1)">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+        <button class="view-btn active" id="view-columns" title="分类视图 (1)" aria-label="分类视图" aria-pressed="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
         </button>
-        <button class="view-btn" id="view-flat" title="卡片视图 (2)">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="7"/><rect x="3" y="14" width="18" height="7"/></svg>
+        <button class="view-btn" id="view-flat" title="卡片视图 (2)" aria-label="卡片视图" aria-pressed="false">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="3" width="18" height="7"/><rect x="3" y="14" width="18" height="7"/></svg>
         </button>
-        <button class="view-btn" id="view-calendar" title="日历视图 (3)">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+        <button class="view-btn" id="view-calendar" title="日历视图 (3)" aria-label="日历视图" aria-pressed="false">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
         </button>
       </div>
     </div>
@@ -88,11 +88,11 @@
 <main>
   <div class="container">
     <!-- 统计图表面板 -->
-    <div class="stats-panel" id="stats-panel">
+    <div class="stats-panel" id="stats-panel" role="region" aria-label="数据统计">
       <div class="stats-panel-header">
         <span class="stats-panel-title">📊 数据统计</span>
-        <button class="stats-panel-close" id="stats-close" title="关闭">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>
+        <button class="stats-panel-close" id="stats-close" title="关闭" aria-label="关闭统计面板">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M18 6L6 18M6 6l12 12"/></svg>
         </button>
       </div>
       <div class="stats-charts">
@@ -215,8 +215,8 @@
   <p style="margin-top:3px" id="update-time"></p>
 </footer>
 
-<button class="back-top" id="back-top" title="回到顶部">
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M18 15l-6-6-6 6"/></svg>
+<button class="back-top" id="back-top" title="回到顶部" aria-label="回到顶部">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><path d="M18 15l-6-6-6 6"/></svg>
 </button>
 
 <div class="shortcut-hint" id="shortcut-hint">

@@ -299,14 +299,14 @@
       ? state.allPosts.filter(function(p) { return matchSearch(p, state.searchQuery); })
       : state.allPosts;
 
-    var h = '<button class="cat-tab' + (state.activeCategory === 'all' ? ' active' : '') + '" data-cat="all"><span class="dot" style="background:linear-gradient(135deg,var(--accent),var(--teal))"></span>全部 <span class="cnt">' + filtered.length + '</span></button>';
+    var h = '<button class="cat-tab' + (state.activeCategory === 'all' ? ' active' : '') + '" data-cat="all" aria-pressed="' + (state.activeCategory === 'all') + '"><span class="dot" style="background:linear-gradient(135deg,var(--accent),var(--teal))"></span>全部 <span class="cnt">' + filtered.length + '</span></button>';
 
     var grouped = {};
     filtered.forEach(function(p) { grouped[p.category_name] = (grouped[p.category_name] || 0) + 1; });
     var sorted = Object.entries(grouped).sort(function(a,b){return b[1]-a[1];});
     sorted.forEach(function(e) {
       var c = cc(e[0]);
-      h += '<button class="cat-tab' + (state.activeCategory === e[0] ? ' active' : '') + '" data-cat="' + esc(e[0]) + '"><span class="dot" style="background:' + c.color + '"></span>' + esc(e[0]) + ' <span class="cnt">' + e[1] + '</span></button>';
+      h += '<button class="cat-tab' + (state.activeCategory === e[0] ? ' active' : '') + '" data-cat="' + esc(e[0]) + '" aria-pressed="' + (state.activeCategory === e[0]) + '"><span class="dot" style="background:' + c.color + '"></span>' + esc(e[0]) + ' <span class="cnt">' + e[1] + '</span></button>';
     });
     list.innerHTML = h;
 
@@ -354,7 +354,7 @@
     var h = '<span class="tag-bar-label">🏷 标签</span>';
     sorted.forEach(function(t) {
       var active = state.activeTags.indexOf(t) !== -1;
-      h += '<button class="tag-chip' + (active ? ' active' : '') + '" data-tag="' + esc(t) + '" title="按标签筛选（可多选，并集生效）">' + esc(t) + ' <span class="cnt">' + counts[t] + '</span></button>';
+      h += '<button class="tag-chip' + (active ? ' active' : '') + '" data-tag="' + esc(t) + '" aria-pressed="' + active + '" title="按标签筛选（可多选，并集生效）">' + esc(t) + ' <span class="cnt">' + counts[t] + '</span></button>';
     });
     bar.innerHTML = h;
     bar.style.display = '';
@@ -527,9 +527,9 @@
 
     var h = '<div class="cal-view">';
     h += '<div class="cal-header">';
-    h += '<button class="cal-nav-btn" id="cal-prev">' + ICONS.up + '</button>';
+    h += '<button class="cal-nav-btn" id="cal-prev" aria-label="上一个月">' + ICONS.up + '</button>';
     h += '<span class="cal-month-title">' + year + '年 ' + monthNames[month] + '</span>';
-    h += '<button class="cal-nav-btn" id="cal-next">' + ICONS.up + '</button>';
+    h += '<button class="cal-nav-btn" id="cal-next" aria-label="下一个月">' + ICONS.up + '</button>';
     h += '</div>';
     h += '<div class="cal-weekdays">';
     var weekdays = ['日','一','二','三','四','五','六'];
@@ -567,7 +567,7 @@
       if (isToday) cls += ' cal-today';
       if (isSelected) cls += ' cal-day-selected';
 
-      h += '<div class="' + cls + '" data-date="' + dateKey + '">';
+      h += '<div class="' + cls + '" data-date="' + dateKey + '"' + (posts.length ? ' role="button" tabindex="0" aria-label="' + dateKey + '，' + posts.length + '篇帖子"' : '') + '>';
       h += '<span class="cal-day-num">' + dayNum + '</span>';
       if (posts.length) {
         var catSet = {};
@@ -612,6 +612,13 @@
         var date = this.dataset.date;
         state.calendarSelectedDate = state.calendarSelectedDate === date ? null : date;
         renderPosts();
+      });
+      // 键盘可达性：Enter / Space 触发与点击一致的选择行为
+      el.addEventListener('keydown', function(ev) {
+        if (ev.key === 'Enter' || ev.key === ' ') {
+          ev.preventDefault();
+          el.click();
+        }
       });
     });
   }
@@ -903,12 +910,19 @@
   // ──────────────────────────────────────────
   // 视图切换
   // ──────────────────────────────────────────
+  // 统一同步视图按钮的 active 类与 aria-pressed 状态（init 与 setView 共用）
+  function syncViewButtons(view) {
+    [['view-columns', 'columns'], ['view-flat', 'flat'], ['view-calendar', 'calendar']].forEach(function(pair) {
+      var el = document.getElementById(pair[0]);
+      el.classList.toggle('active', view === pair[1]);
+      el.setAttribute('aria-pressed', String(view === pair[1]));
+    });
+  }
+
   function setView(view) {
     state.currentView = view;
     if (view === 'calendar') state.calendarSelectedDate = null;
-    document.getElementById('view-columns').classList.toggle('active', view === 'columns');
-    document.getElementById('view-flat').classList.toggle('active', view === 'flat');
-    document.getElementById('view-calendar').classList.toggle('active', view === 'calendar');
+    syncViewButtons(view);
     renderPosts();
     savePrefs();
     saveToURL();
@@ -989,19 +1003,23 @@
     document.getElementById('export-csv').addEventListener('click', function() { exportData('csv'); });
     document.getElementById('export-json').addEventListener('click', function() { exportData('json'); });
 
-    // 导出菜单下拉
+    // 导出菜单下拉（同步 aria-expanded 供屏幕阅读器感知展开状态）
     var exportBtn = document.getElementById('export-menu-btn');
     var exportDropdown = document.getElementById('export-dropdown');
     exportBtn.addEventListener('click', function(e) {
       e.stopPropagation();
-      exportDropdown.style.display = exportDropdown.style.display === 'none' ? 'block' : 'none';
+      var open = exportDropdown.style.display === 'none';
+      exportDropdown.style.display = open ? 'block' : 'none';
+      exportBtn.setAttribute('aria-expanded', String(open));
     });
     document.addEventListener('click', function() {
       exportDropdown.style.display = 'none';
+      exportBtn.setAttribute('aria-expanded', 'false');
     });
     exportDropdown.addEventListener('click', function(e) {
       e.stopPropagation();
       exportDropdown.style.display = 'none';
+      exportBtn.setAttribute('aria-expanded', 'false');
     });
 
     // 快捷键提示（2s 后显示，8s 后隐藏）
@@ -1144,6 +1162,8 @@
       toast = document.createElement('div');
       toast.id = 'toast';
       toast.className = 'toast';
+      toast.setAttribute('role', 'status');
+      toast.setAttribute('aria-live', 'polite');
       document.body.appendChild(toast);
     }
     toast.textContent = msg;
@@ -1163,16 +1183,8 @@
     // 应用主题
     applyTheme(state.theme);
 
-    // 应用视图状态
-    if (state.currentView === 'flat') {
-      document.getElementById('view-flat').classList.add('active');
-      document.getElementById('view-columns').classList.remove('active');
-      document.getElementById('view-calendar').classList.remove('active');
-    } else if (state.currentView === 'calendar') {
-      document.getElementById('view-calendar').classList.add('active');
-      document.getElementById('view-columns').classList.remove('active');
-      document.getElementById('view-flat').classList.remove('active');
-    }
+    // 应用视图状态（同步 active 类与 aria-pressed）
+    syncViewButtons(state.currentView);
 
     // 设置事件
     setupEvents();
