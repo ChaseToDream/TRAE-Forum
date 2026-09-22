@@ -8,6 +8,7 @@
 - Pydantic 数据校验
 - 进度条显示
 - 抓取失败保护：首页获取失败时中止运行，避免空数据覆盖已有 posts.json
+- 已删除帖子检测：完整抓取时两段式确认（标记→复核）并清理已删除帖子
 """
 
 import asyncio
@@ -231,17 +232,20 @@ async def fetch_user_profile(client: ForumClient, username: str) -> Optional[Use
         created_at=user.get("created_at", ""),
     )
 
-async def fetch_user_topics(client: ForumClient, username: str) -> tuple[list[dict], bool]:
+async def fetch_user_topics(client: ForumClient, username: str) -> tuple[list[dict], bool, bool]:
     """抓取用户帖子列表。
 
-    返回 (topics, first_page_failed)：
+    返回 (topics, first_page_failed, complete)：
     - first_page_failed=True 表示首页请求失败或响应格式异常，结果不可信，
       调用方应中止流程，避免用空数据覆盖已有的 posts.json。
+    - complete=True 表示分页自然结束（空页或无更多数据），帖子列表完整可信，
+      可用于已删除帖子检测；中途出错或达到 MAX_PAGES 时为 False。
     - 首页正常但列表为空视为用户确实无帖子，属于正常结果。
     """
     all_topics: list[dict] = []
     seen_ids: set[int] = set()
     page = 0
+    complete = False
 
     log.info("开始抓取用户 '%s' 的帖子...", username)
 
@@ -254,7 +258,7 @@ async def fetch_user_topics(client: ForumClient, username: str) -> tuple[list[di
         if data is None:
             if page == 0:
                 log.error("首页请求失败（已重试 %d 次），无法区分'无帖子'与'抓取失败'", MAX_RETRIES)
-                return [], True
+                return [], True, False
             log.warning("获取第 %d 页失败，停止翻页", page + 1)
             break
 
@@ -262,13 +266,14 @@ async def fetch_user_topics(client: ForumClient, username: str) -> tuple[list[di
         if not isinstance(topic_list, dict):
             if page == 0:
                 log.error("首页响应格式异常（缺少 topic_list），结果不可信，中止以保护已有数据")
-                return [], True
+                return [], True, False
             log.warning("第 %d 页数据格式异常，停止翻页", page + 1)
             break
 
         topics = topic_list.get("topics", [])
         if not topics:
             log.info("第 %d 页无数据，停止翻页", page + 1)
+            complete = True  # 翻到空页，列表已完整
             break
 
         new_count = 0
@@ -287,6 +292,7 @@ async def fetch_user_topics(client: ForumClient, username: str) -> tuple[list[di
 
         more_url = topic_list.get("more_topics_url", "")
         if not more_url:
+            complete = True  # 服务端确认无更多数据，列表已完整
             break
 
         page += 1
@@ -295,7 +301,7 @@ async def fetch_user_topics(client: ForumClient, username: str) -> tuple[list[di
     if page >= MAX_PAGES:
         log.warning("达到最大翻页数 %d，数据可能不完整", MAX_PAGES)
 
-    return all_topics, False
+    return all_topics, False, complete
 
 # ──────────────────────────────────────────────
 # 数据处理
@@ -548,6 +554,44 @@ def determine_posts_to_refresh(
     return ids_to_refresh, reused
 
 # ──────────────────────────────────────────────
+# 已删除帖子检测（两段式确认）
+# ──────────────────────────────────────────────
+def reconcile_deleted_posts(
+    posts: list[PostItem],
+    existing_map: dict[int, dict],
+    prev_stale: set[int],
+) -> tuple[list[PostItem], list[int]]:
+    """基于完整抓取结果检测论坛已删除的帖子，两段式确认避免误删。
+
+    仅在分页自然结束（列表完整可信）时调用。对比当前列表与已有数据，
+    对论坛列表中缺失的已有帖子分两种处理：
+    - 上一轮已标记待删除（ID 在 prev_stale 中）→ 本轮确认删除，从输出移除
+    - 首次缺失 → 本轮从已有数据恢复回输出继续展示，并标记待删除，下轮复核
+    返回 (合并后的帖子列表, 本轮待删除标记ID列表)。
+    """
+    current_ids = {p.id for p in posts}
+    missing = sorted(pid for pid in existing_map if pid not in current_ids)
+    if not missing:
+        return posts, []
+
+    confirmed = [pid for pid in missing if pid in prev_stale]
+    new_stale = [pid for pid in missing if pid not in prev_stale]
+
+    # 首次缺失的帖子从已有数据恢复，继续展示，等待下轮复核
+    for pid in new_stale:
+        try:
+            posts.append(PostItem.model_validate(existing_map[pid]))
+        except Exception as e:
+            log.warning("恢复帖子 %d 数据失败，直接移除: %s", pid, e)
+    posts.sort(key=lambda x: x.created_at, reverse=True)
+
+    if confirmed:
+        log.info("确认删除 %d 条已从论坛移除的帖子: %s", len(confirmed), confirmed)
+    if new_stale:
+        log.info("检测到 %d 条帖子在论坛列表中缺失，保留并标记待下轮复核: %s", len(new_stale), new_stale)
+    return posts, new_stale
+
+# ──────────────────────────────────────────────
 # 输出
 # ──────────────────────────────────────────────
 def validate_posts(posts: list[PostItem]) -> dict:
@@ -579,6 +623,7 @@ def build_output_data(
     excluded_count: int,
     raw_count: int,
     excluded_names: list[str],
+    stale_ids: Optional[list[int]] = None,
 ) -> OutputData:
     validation = validate_posts(filtered_topics)
     if validation["missing_title"] > 0 or validation["missing_date"] > 0:
@@ -605,6 +650,7 @@ def build_output_data(
             "raw_fetched": raw_count,
             "valid_posts": validation["valid"],
             "total_posts": validation["total"],
+            "stale_candidate_ids": stale_ids or [],
             "issues": {
                 "missing_title": validation["missing_title"],
                 "missing_date": validation["missing_date"],
@@ -664,7 +710,7 @@ async def main():
 
         # 5. 获取帖子列表（仅用于获取帖子ID和基础信息）
         log.info("[3/4] 获取用户帖子列表...")
-        raw_topics, first_page_failed = await fetch_user_topics(client, username)
+        raw_topics, first_page_failed, fetch_complete = await fetch_user_topics(client, username)
         if first_page_failed:
             log.error("帖子列表抓取失败，中止运行；已有 data/posts.json 保持不变")
             sys.exit(1)
@@ -679,6 +725,18 @@ async def main():
         # 7. 增量刷新帖子详情（仅更新有变化的帖子）
         existing_data, _ = load_existing_data()
         existing_map = {p["id"]: p for p in existing_data.get("posts", []) if p.get("id")}
+        prev_stale = set((existing_data.get("_quality") or {}).get("stale_candidate_ids", []))
+
+        # 已删除帖子检测：仅在分页自然结束（列表完整可信）时执行，
+        # 非完整抓取跳过检测并保留既有待复核标记，避免分页异常导致误删
+        if existing_map and fetch_complete:
+            filtered_topics, stale_ids = reconcile_deleted_posts(
+                filtered_topics, existing_map, prev_stale
+            )
+        else:
+            stale_ids = sorted(prev_stale)
+            if existing_map and not fetch_complete:
+                log.info("本次未完成完整翻页，跳过删除检测，保留 %d 条待复核标记", len(stale_ids))
 
         ids_to_refresh, reused_count = determine_posts_to_refresh(
             filtered_topics, existing_map
@@ -695,7 +753,7 @@ async def main():
         # 8. 构建输出
         output = build_output_data(
             profile, filtered_topics, excluded_count,
-            len(raw_topics), excluded_names
+            len(raw_topics), excluded_names, stale_ids
         )
         output_path = save_output_file(output)
 
