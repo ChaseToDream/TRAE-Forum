@@ -1079,7 +1079,10 @@
         updateCatTabs();
         renderPosts();
       })
-      .catch(function(e) { console.warn('刷新数据失败:', e); })
+      .catch(function(e) {
+        console.warn('刷新数据失败:', e);
+        showToast('⚠️ 刷新失败，当前显示的仍是上次数据');
+      })
       .finally(function() {
         state.isRefreshing = false;
         if (btn) btn.classList.remove('spinning');
@@ -1104,6 +1107,24 @@
     content.innerHTML = '<div class="error-state"><h3>⚠️ 加载失败</h3><p>' + esc(msg) + '</p><p style="margin-top:10px;font-size:0.8rem">请稍后重试，或访问 <a href="https://forum.trae.cn/" target="_blank" rel="noopener">TRAE官方论坛</a></p><button id="retry-btn" class="retry-btn">🔄 重试加载</button></div>';
     var retry = document.getElementById('retry-btn');
     if (retry) retry.addEventListener('click', function() { loadData(); });
+  }
+
+  // ──────────────────────────────────────────
+  // Toast 通知（单例，避免堆叠；用于刷新失败等非致命提示）
+  // ──────────────────────────────────────────
+  var toastTimer = null;
+  function showToast(msg) {
+    var toast = document.getElementById('toast');
+    if (!toast) {
+      toast = document.createElement('div');
+      toast.id = 'toast';
+      toast.className = 'toast';
+      document.body.appendChild(toast);
+    }
+    toast.textContent = msg;
+    toast.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function() { toast.classList.remove('show'); }, 3000);
   }
 
   // ──────────────────────────────────────────
