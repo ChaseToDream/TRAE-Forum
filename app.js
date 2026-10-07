@@ -269,7 +269,9 @@
   function renderHeader(data) {
     var user = data.user || {};
     var avatar = document.getElementById('avatar');
-    if (user.avatar_url) { avatar.src = user.avatar_url; avatar.style.display = 'block'; }
+    // 与其他插值一致，仅放行 http(s) 链接，阻断 javascript: 等伪协议进入 src
+    var avatarUrl = safeUrl(user.avatar_url);
+    if (avatarUrl) { avatar.src = avatarUrl; avatar.style.display = 'block'; }
     var usernameEl = document.getElementById('username');
     var uname = user.username || '未知用户';
     if (user.username) {

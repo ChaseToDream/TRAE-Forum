@@ -507,9 +507,19 @@ def load_existing_data() -> tuple[dict, set[int]]:
         return {}, set()
 
 def has_post_changed(post: PostItem, existing: dict) -> bool:
-    """对比列表 API 数据与已有数据，判断帖子是否需要刷新详情。"""
+    """对比列表 API 数据与已有数据，判断帖子是否需要刷新详情。
+
+    除互动计数外，同时检测标题、分类、标签变更：列表 API 已带回这些字段的
+    新值，若帖子被编辑但互动数未变而漏判，apply_existing_detail 会用旧数据
+    反向覆盖列表返回的新值，导致编辑内容静默丢失。
+    标签按集合比较（忽略顺序），避免论坛端标签顺序变化引发永久性误判刷新。
+    """
+    existing_tags = existing.get("tags") or []
     return (
-        post.views != existing.get("views", 0)
+        post.title != existing.get("title", "")
+        or post.category_id != existing.get("category_id", 0)
+        or sorted(post.tags) != sorted(existing_tags)
+        or post.views != existing.get("views", 0)
         or post.like_count != existing.get("like_count", 0)
         or post.reply_count != existing.get("reply_count", 0)
         or post.posts_count != existing.get("posts_count", 0)
