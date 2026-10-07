@@ -460,62 +460,161 @@
   }
 
   // ──────────────────────────────────────────
-  // 虚拟滚动（卡片视图）
+  // 虚拟滚动（卡片视图）— 真窗口化实现
+  // 仅在 DOM 中保留可视区 + 缓冲行的卡片，滚动时滑窗重建，
+  // 其余行由顶部/底部占位符支撑总高度（旧实现最终会把全部卡片挂到 DOM）。
+  // 卡片高度可变（有无图片、摘要行数不同），渲染后按行实测并缓存，
+  // 未实测行用估算值；视口上方行高被修正时补偿 scrollTop，保证滚动无跳变。
   // ──────────────────────────────────────────
+  var VS = {
+    EST_ROW_H: 320, // 未实测行的估算高度
+    GAP: 20,        // 与 styles.css .flat-grid 的 gap 保持一致
+    BUFFER: 3,      // 视口上下各多渲染的行数
+  };
+  var virtual = {
+    active: false,
+    items: [],
+    cols: 1,
+    rowH: {}, // 行号 -> 实测高度
+    startRow: -1,
+    endRow: -1,
+    wrap: null, grid: null, topSpacer: null, botSpacer: null,
+    raf: 0,
+    firstRender: true,
+  };
+
+  function vReset() {
+    virtual.active = false;
+    virtual.items = [];
+    virtual.rowH = {};
+    virtual.startRow = virtual.endRow = -1;
+    virtual.wrap = virtual.grid = virtual.topSpacer = virtual.botSpacer = null;
+    if (virtual.raf) { cancelAnimationFrame(virtual.raf); virtual.raf = 0; }
+  }
+
+  function vTotalRows() { return Math.ceil(virtual.items.length / virtual.cols); }
+
+  function vRowHeight(r) { return virtual.rowH[r] != null ? virtual.rowH[r] : VS.EST_ROW_H; }
+
+  // 行 r 顶部相对 wrap 顶部的偏移（行数最多数百，O(r) 前缀和开销可忽略）
+  function vRowOffset(r) {
+    var y = 0;
+    for (var i = 0; i < r; i++) y += vRowHeight(i) + VS.GAP;
+    return y;
+  }
+
+  function vTotalHeight() { return vRowOffset(vTotalRows()); }
+
+  // 与 CSS auto-fill minmax(320px,1fr) + gap:20px 等价的列数估算，
+  // 渲染后 vUpdateWindow 内会以浏览器实际轨道数校准
+  function vComputeCols() {
+    var content = document.getElementById('content');
+    var w = content.clientWidth - 48; // 减去容器左右内边距
+    return Math.max(1, Math.floor((w + VS.GAP) / (320 + VS.GAP)));
+  }
+
+  function vScheduleUpdate() {
+    if (virtual.raf) return;
+    virtual.raf = requestAnimationFrame(function() {
+      virtual.raf = 0;
+      vUpdateWindow(false);
+    });
+  }
+
+  function vUpdateWindow(force) {
+    if (!virtual.active || !virtual.grid) return;
+    var totalRows = vTotalRows();
+    if (!totalRows) return;
+
+    // 视口在 wrap 坐标系中的范围
+    var wrapTop = virtual.wrap.getBoundingClientRect().top + window.scrollY;
+    var scrollRel = window.scrollY - wrapTop;
+    var viewBottom = scrollRel + window.innerHeight;
+
+    // 二分查找第一个底部越过视口顶部的行
+    var first = 0, lo = 0, hi = totalRows - 1;
+    while (lo <= hi) {
+      var mid = (lo + hi) >> 1;
+      if (vRowOffset(mid) + vRowHeight(mid) > scrollRel) { first = mid; hi = mid - 1; }
+      else lo = mid + 1;
+    }
+    var last = first;
+    while (last < totalRows - 1 && vRowOffset(last) < viewBottom) last++;
+
+    var startRow = Math.max(0, first - VS.BUFFER);
+    var endRow = Math.min(totalRows, last + 1 + VS.BUFFER);
+
+    if (!force && startRow === virtual.startRow && endRow === virtual.endRow) return;
+
+    // 渲染 [startRow, endRow) 整行对齐的窗口
+    var startIdx = startRow * virtual.cols;
+    var endIdx = Math.min(virtual.items.length, endRow * virtual.cols);
+    var h = '';
+    for (var i = startIdx; i < endIdx; i++) {
+      h += buildFlatCard(virtual.items[i], i);
+    }
+    virtual.grid.innerHTML = h;
+
+    // 滑窗重建的卡片不再播放入场动画，避免滚动时闪烁（首次渲染保留动画）
+    if (!virtual.firstRender) virtual.grid.classList.add('no-anim');
+
+    // 校正列数：以浏览器实际生成的网格轨道数为准（轨道数只取决于容器宽度，
+    // 与窗口内容无关，因此最多递归一次，不会循环）
+    var tracks = getComputedStyle(virtual.grid).gridTemplateColumns.trim().split(/\s+/).length;
+    if (tracks > 0 && tracks !== virtual.cols) {
+      virtual.cols = tracks;
+      virtual.rowH = {};
+      return vUpdateWindow(true);
+    }
+
+    // 按行实测高度并缓存；视口上方（r < first）行高被修正时累计补偿量，
+    // 避免内容整体位移造成滚动跳变
+    var children = virtual.grid.children;
+    var deltaAbove = 0;
+    for (var r = startRow; r < endRow; r++) {
+      var rowMax = 0;
+      var from = r * virtual.cols - startIdx;
+      var to = Math.min(children.length, (r + 1) * virtual.cols - startIdx);
+      for (var k = from; k < to; k++) {
+        if (children[k] && children[k].offsetHeight > rowMax) rowMax = children[k].offsetHeight;
+      }
+      if (rowMax && virtual.rowH[r] !== rowMax) {
+        var oldH = vRowHeight(r);
+        virtual.rowH[r] = rowMax;
+        if (r < first && rowMax !== oldH) deltaAbove += rowMax - oldH;
+      }
+    }
+
+    virtual.topSpacer.style.height = vRowOffset(startRow) + 'px';
+    virtual.botSpacer.style.height = Math.max(0, vTotalHeight() - vRowOffset(endRow)) + 'px';
+
+    if (deltaAbove) window.scrollBy(0, deltaAbove);
+
+    virtual.startRow = startRow;
+    virtual.endRow = endRow;
+    virtual.firstRender = false;
+  }
+
   function renderFlatViewVirtual(sorted) {
     var content = document.getElementById('content');
-    var CARD_HEIGHT = 320; // 估算卡片高度
-    var GAP = 20;
-    var containerH = window.innerHeight - 200;
-    var cols = Math.max(1, Math.floor((content.clientWidth - 48) / (320 + GAP)));
-    var visibleRows = Math.ceil(containerH / (CARD_HEIGHT + GAP)) + 2;
-    var visibleCount = visibleRows * cols;
+    vReset();
+    virtual.active = true;
+    virtual.items = sorted;
+    virtual.cols = vComputeCols();
+    virtual.firstRender = true;
 
-    var html = '<div class="flat-grid" id="virtual-container">';
+    content.innerHTML =
+      '<div id="virtual-wrap">' +
+      '<div id="virtual-top" style="height:0"></div>' +
+      '<div class="flat-grid" id="virtual-grid"></div>' +
+      '<div id="virtual-bottom" style="height:0"></div>' +
+      '</div>';
+    virtual.wrap = document.getElementById('virtual-wrap');
+    virtual.grid = document.getElementById('virtual-grid');
+    virtual.topSpacer = document.getElementById('virtual-top');
+    virtual.botSpacer = document.getElementById('virtual-bottom');
 
-    // 只渲染可见部分
-    var renderCount = Math.min(sorted.length, visibleCount);
-    for (var i = 0; i < renderCount; i++) {
-      html += buildFlatCard(sorted[i], i);
-    }
-    html += '</div>';
-
-    // 剩余占位
-    if (sorted.length > renderCount) {
-      var remainingH = Math.ceil((sorted.length - renderCount) / cols) * (CARD_HEIGHT + GAP);
-      html += '<div id="virtual-spacer" style="height:' + remainingH + 'px"></div>';
-    }
-
-    content.innerHTML = html;
-
-    // 懒加载剩余卡片
-    if (sorted.length > renderCount) {
-      var loaded = renderCount;
-      var container = document.getElementById('virtual-container');
-      var observer = new IntersectionObserver(function(entries) {
-        entries.forEach(function(entry) {
-          if (entry.isIntersecting && loaded < sorted.length) {
-            var batch = Math.min(sorted.length - loaded, cols * 2);
-            var frag = document.createDocumentFragment();
-            var temp = document.createElement('div');
-            for (var j = 0; j < batch; j++) {
-              temp.innerHTML = buildFlatCard(sorted[loaded + j], loaded + j);
-              frag.appendChild(temp.firstChild);
-            }
-            container.appendChild(frag);
-            loaded += batch;
-            if (loaded >= sorted.length) {
-              observer.disconnect();
-              var spacer = document.getElementById('virtual-spacer');
-              if (spacer) spacer.remove();
-            }
-          }
-        });
-      }, { rootMargin: '200px' });
-
-      var spacer = document.getElementById('virtual-spacer');
-      if (spacer) observer.observe(spacer);
-    }
+    vUpdateWindow(true);
   }
 
   // ──────────────────────────────────────────
@@ -682,6 +781,7 @@
   }
 
   function renderPosts() {
+    vReset(); // 离开卡片视图或数据/筛选变化时重置虚拟滚动状态
     filterPosts();
     var content = document.getElementById('content');
     if (!state.filteredPosts.length) {
@@ -1109,7 +1209,38 @@
     window.addEventListener('scroll', function() {
       header.classList.toggle('scrolled', window.scrollY > 4);
       document.getElementById('back-top').classList.toggle('show', window.scrollY > 300);
+      // 虚拟滚动滑窗更新（rAF 节流）
+      if (virtual.active) vScheduleUpdate();
     }, { passive: true });
+
+    // 视口尺寸变化：列数可能改变，行高缓存失效，重开窗口并保持锚点位置
+    var vResizeTimer = null;
+    window.addEventListener('resize', function() {
+      if (!virtual.active) return;
+      clearTimeout(vResizeTimer);
+      vResizeTimer = setTimeout(function() {
+        if (!virtual.active || !virtual.wrap) return;
+        // 记录视口顶部所在行的首项作为锚点
+        var wrapTop = virtual.wrap.getBoundingClientRect().top + window.scrollY;
+        var scrollRel = window.scrollY - wrapTop;
+        var anchorRow = 0, lo = 0, hi = vTotalRows() - 1;
+        while (lo <= hi) {
+          var mid = (lo + hi) >> 1;
+          if (vRowOffset(mid) + vRowHeight(mid) > scrollRel) { anchorRow = mid; hi = mid - 1; }
+          else lo = mid + 1;
+        }
+        var anchorIdx = anchorRow * virtual.cols;
+
+        virtual.cols = vComputeCols();
+        virtual.rowH = {};
+        virtual.startRow = virtual.endRow = -1;
+        vUpdateWindow(true);
+
+        // 将锚点项滚回视口顶部附近
+        var row = Math.floor(anchorIdx / virtual.cols);
+        window.scrollTo(0, virtual.wrap.getBoundingClientRect().top + window.scrollY + vRowOffset(row));
+      }, 150);
+    });
 
     document.getElementById('back-top').addEventListener('click', function() {
       window.scrollTo({ top: 0, behavior: 'smooth' });

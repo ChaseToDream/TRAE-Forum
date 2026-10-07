@@ -406,6 +406,8 @@ main { padding: 24px 0 48px; }
   grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
   gap: 20px;
 }
+/* 虚拟滚动滑窗重建的卡片禁用入场动画，避免滚动时闪烁 */
+.flat-grid.no-anim .flat-card { animation: none; }
 .flat-card {
   display: flex; flex-direction: column;
   background: var(--bg-white);
