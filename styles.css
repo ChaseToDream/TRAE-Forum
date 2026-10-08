@@ -318,6 +318,15 @@ mark {
   box-shadow: 0 2px 8px rgba(79,110,247,0.25);
 }
 .tag-chip .cnt { font-size: 0.65rem; opacity: 0.6; font-weight: 600; }
+.tag-toggle {
+  display: inline-flex; align-items: center;
+  padding: 3px 10px; border-radius: 999px;
+  border: 1.5px dashed var(--border);
+  background: transparent; color: var(--text-tertiary);
+  font-size: 0.75rem; cursor: pointer; user-select: none;
+  transition: all 0.15s var(--ease);
+}
+.tag-toggle:hover { color: var(--accent); border-color: var(--accent-mid); background: var(--accent-soft); }
 
 /* ── MAIN ── */
 main { padding: 24px 0 48px; }

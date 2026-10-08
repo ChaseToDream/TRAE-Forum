@@ -49,6 +49,7 @@
     catConfig: {},
     activeCategory: 'all',
     activeTags: [],
+    tagBarExpanded: false,    // 标签栏是否展开（默认折叠，仅显示前 10 个）
     searchQuery: '',
     currentSort: 'newest',
     currentView: 'columns',
@@ -378,10 +379,21 @@
     }
 
     var h = '<span class="tag-bar-label">🏷 标签</span>';
-    sorted.forEach(function(t) {
+
+    // 默认折叠：仅显示前 N 个标签，已选中的标签始终保留，其余收进"展开全部"
+    var TAG_PREVIEW = 10;
+    var expanded = state.tagBarExpanded;
+    var visible = sorted.filter(function(t, i) {
+      return expanded || i < TAG_PREVIEW || state.activeTags.indexOf(t) !== -1;
+    });
+    visible.forEach(function(t) {
       var active = state.activeTags.indexOf(t) !== -1;
       h += '<button class="tag-chip' + (active ? ' active' : '') + '" data-tag="' + esc(t) + '" aria-pressed="' + active + '" title="按标签筛选（可多选，并集生效）">' + esc(t) + ' <span class="cnt">' + counts[t] + '</span></button>';
     });
+    if (sorted.length > TAG_PREVIEW) {
+      var hidden = sorted.length - visible.length;
+      h += '<button class="tag-toggle" data-tag-toggle="1" aria-expanded="' + expanded + '" title="' + (expanded ? '收起标签列表' : '展开其余 ' + hidden + ' 个标签') + '">' + (expanded ? '收起 ▴' : '展开全部 ▾ ' + hidden) + '</button>';
+    }
     bar.innerHTML = h;
     bar.style.display = '';
   }
@@ -1128,6 +1140,13 @@
 
     // 标签筛选（多选，并集语义，再次点击取消）
     document.getElementById('tag-list').addEventListener('click', function(e) {
+      // 展开/收起按钮：仅重绘标签栏，不影响帖子筛选
+      var toggle = e.target.closest('.tag-toggle');
+      if (toggle) {
+        state.tagBarExpanded = !state.tagBarExpanded;
+        updateTagBar();
+        return;
+      }
       var btn = e.target.closest('.tag-chip');
       if (!btn) return;
       var tag = btn.dataset.tag;
