@@ -6,6 +6,7 @@
 - 未变化帖子复用已有详情，减少 API 调用
 - 结构化日志输出
 - Pydantic 数据校验
+- RSS 订阅源生成（feed.xml，收录最新帖子）
 - 进度条显示
 - 抓取失败保护：首页获取失败时中止运行，避免空数据覆盖已有 posts.json
 - 已删除帖子检测：完整抓取时两段式确认（标记→复核）并清理已删除帖子
@@ -15,8 +16,11 @@ import asyncio
 import json
 import logging
 import os
+import re
 import sys
 import time
+from datetime import datetime, timezone
+from email.utils import format_datetime
 from html import unescape
 from pathlib import Path
 from typing import Optional
@@ -38,6 +42,8 @@ CONCURRENCY = 5  # 并发数
 PROJECT_ROOT = Path(__file__).parent.parent
 CONFIG_PATH = PROJECT_ROOT / "config.json"
 OUTPUT_PATH = PROJECT_ROOT / "data" / "posts.json"
+FEED_PATH = PROJECT_ROOT / "feed.xml"
+FEED_MAX_ITEMS = 50  # RSS 收录的最新帖子数量
 
 # ──────────────────────────────────────────────
 # 日志配置
@@ -679,6 +685,72 @@ def save_output_file(output: OutputData) -> Path:
     return OUTPUT_PATH
 
 # ──────────────────────────────────────────────
+# RSS 订阅源
+# ──────────────────────────────────────────────
+_XML_INVALID_CHARS = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f]")
+
+def xml_escape(text: str) -> str:
+    """XML 转义并剔除 XML 1.0 不允许的控制字符，保证 feed.xml 恒为良构文档。"""
+    text = _XML_INVALID_CHARS.sub("", text or "")
+    return (
+        text.replace("&", "&amp;")
+        .replace("<", "&lt;")
+        .replace(">", "&gt;")
+        .replace('"', "&quot;")
+        .replace("'", "&apos;")
+    )
+
+def to_rfc822(iso: str) -> str:
+    """ISO 8601（如 2026-01-01T00:00:00.000Z）→ RFC 822 日期；解析失败返回空串。"""
+    if not iso:
+        return ""
+    try:
+        dt = datetime.fromisoformat(iso.replace("Z", "+00:00"))
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        return format_datetime(dt)
+    except ValueError:
+        return ""
+
+def build_feed(profile: UserProfile, posts: list[PostItem], updated_at: str) -> str:
+    """生成 RSS 2.0 订阅源文本，收录最新 FEED_MAX_ITEMS 条帖子。
+
+    posts 已按创建时间倒序（process_and_filter_topics 保证），直接取前 N 条。
+    """
+    author = profile.name or profile.username
+    lines = [
+        '<?xml version="1.0" encoding="UTF-8"?>',
+        '<rss version="2.0">',
+        "<channel>",
+        f"<title>{xml_escape(author)} 的 TRAE 论坛帖子</title>",
+        f"<link>{xml_escape(f'{FORUM_BASE}/u/{profile.username}/summary')}</link>",
+        f"<description>{xml_escape(f'{author} 发布于 TRAE 官方中文社区的最新帖子')}</description>",
+        "<generator>TRAE-Forum</generator>",
+        f"<lastBuildDate>{to_rfc822(updated_at)}</lastBuildDate>",
+    ]
+    for p in posts[:FEED_MAX_ITEMS]:
+        lines += [
+            "<item>",
+            f"<title>{xml_escape(p.title)}</title>",
+            f"<link>{xml_escape(p.url)}</link>",
+            f'<guid isPermaLink="true">{xml_escape(p.url)}</guid>',
+            f"<pubDate>{to_rfc822(p.created_at)}</pubDate>",
+            f"<category>{xml_escape(p.category_name)}</category>",
+            f"<description>{xml_escape(p.excerpt)}</description>",
+            "</item>",
+        ]
+    lines += ["</channel>", "</rss>", ""]
+    return "\n".join(lines)
+
+def save_feed_file(profile: UserProfile, posts: list[PostItem], updated_at: str) -> Path:
+    feed = build_feed(profile, posts, updated_at)
+    tmp_path = FEED_PATH.with_suffix(".xml.tmp")
+    with open(tmp_path, "w", encoding="utf-8") as f:
+        f.write(feed)
+    os.replace(tmp_path, FEED_PATH)
+    return FEED_PATH
+
+# ──────────────────────────────────────────────
 # 主流程
 # ──────────────────────────────────────────────
 async def main():
@@ -766,6 +838,7 @@ async def main():
             len(raw_topics), excluded_names, stale_ids
         )
         output_path = save_output_file(output)
+        feed_path = save_feed_file(profile, filtered_topics, output.updated_at)
 
         # 9. 打印摘要
         log.info("=== 完成 ===")
@@ -773,6 +846,7 @@ async def main():
         log.info("已排除: %d (%s)", excluded_count, ", ".join(excluded_names) if excluded_names else "无")
         log.info("分类统计: %s", json.dumps(output.categories, ensure_ascii=False))
         log.info("输出文件: %s", output_path)
+        log.info("RSS 订阅源: %s", feed_path)
 
 if __name__ == "__main__":
     asyncio.run(main())
