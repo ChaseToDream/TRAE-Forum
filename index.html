@@ -61,7 +61,15 @@
       <button class="search-clear" id="search-clear" title="清除搜索 (Esc)" aria-label="清除搜索">&times;</button>
     </div>
     <span class="search-results" id="search-results" style="display:none" aria-live="polite"></span>
-    <div class="cat-tabs" id="cat-list"></div>
+    <div class="cat-tabs-nav">
+      <button class="cat-nav-btn" id="cat-nav-left" aria-label="向左滚动分类栏" title="向左滚动">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="15 18 9 12 15 6"/></svg>
+      </button>
+      <div class="cat-tabs" id="cat-list"></div>
+      <button class="cat-nav-btn" id="cat-nav-right" aria-label="向右滚动分类栏" title="向右滚动">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 18 15 12 9 6"/></svg>
+      </button>
+    </div>
     <div class="tag-bar" id="tag-list" style="display:none"></div>
     <div class="toolbar-actions">
       <select class="sort-select" id="sort-select" aria-label="排序方式">

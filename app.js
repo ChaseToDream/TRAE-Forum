@@ -333,6 +333,16 @@
     });
     list.innerHTML = h;
 
+    // 深链接/搜索恢复时激活分类可能在可视区外，水平居中到激活标签
+    var act = list.querySelector('.cat-tab.active');
+    if (act) {
+      var al = act.offsetLeft, ar = al + act.offsetWidth;
+      if (al < list.scrollLeft + 4 || ar > list.scrollLeft + list.clientWidth - 4) {
+        list.scrollLeft = al - (list.clientWidth - act.offsetWidth) / 2;
+      }
+    }
+    updateCatNav();
+
     var searchResults = document.getElementById('search-results');
     if (searchResults) {
       if (state.searchQuery) {
@@ -345,6 +355,25 @@
 
     // 标签栏与分类栏同步刷新
     updateTagBar();
+  }
+
+  // ──────────────────────────────────────────
+  // 分类栏左右滚动箭头：仅在对应方向还有内容时显示
+  // ──────────────────────────────────────────
+  function updateCatNav() {
+    var list = document.getElementById('cat-list');
+    var left = document.getElementById('cat-nav-left');
+    var right = document.getElementById('cat-nav-right');
+    if (!list || !left || !right) return;
+    var max = list.scrollWidth - list.clientWidth;
+    left.classList.toggle('show', list.scrollLeft > 2);
+    right.classList.toggle('show', list.scrollLeft < max - 2);
+  }
+
+  function scrollCats(dir) {
+    var list = document.getElementById('cat-list');
+    if (!list) return;
+    list.scrollBy({ left: dir * 240, behavior: 'smooth' });
   }
 
   // ──────────────────────────────────────────
@@ -1138,6 +1167,11 @@
       saveToURL();
     });
 
+    // 分类栏滚动箭头：点击平滑滚动，滚动时同步箭头显隐
+    document.getElementById('cat-nav-left').addEventListener('click', function() { scrollCats(-1); });
+    document.getElementById('cat-nav-right').addEventListener('click', function() { scrollCats(1); });
+    document.getElementById('cat-list').addEventListener('scroll', updateCatNav, { passive: true });
+
     // 标签筛选（多选，并集语义，再次点击取消）
     document.getElementById('tag-list').addEventListener('click', function(e) {
       // 展开/收起按钮：仅重绘标签栏，不影响帖子筛选
@@ -1241,6 +1275,8 @@
       vResizeTimer = setTimeout(function() {
         // 热力图单元格为 1fr 拉伸布局，宽度变化后需重算月份标签位置
         if (state.showStats) renderHeatmap();
+        // 分类栏宽度变化后同步滚动箭头显隐
+        updateCatNav();
         if (!virtual.active || !virtual.wrap) return;
         // 记录视口顶部所在行的首项作为锚点
         var wrapTop = virtual.wrap.getBoundingClientRect().top + window.scrollY;
@@ -1436,6 +1472,8 @@
         renderPosts();
 
         document.getElementById('toolbar').style.display = '';
+        // toolbar 显示前测量宽度均为 0，需显示后再同步一次滚动箭头显隐
+        updateCatNav();
 
         startAutoRefresh();
         if (!state.visibilityHooked) {

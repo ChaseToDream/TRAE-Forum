@@ -236,6 +236,21 @@ mark {
 }
 .search-clear:hover { background: var(--text-tertiary); color: #fff; }
 .search-clear.show { display: flex; }
+.cat-tabs-nav {
+  display: flex; align-items: center; gap: 4px;
+  flex: 1; min-width: 0; /* 允许在 flex 布局中收缩，保证内部横向滚动生效 */
+}
+.cat-nav-btn {
+  flex-shrink: 0; width: 24px; height: 32px;
+  display: none; align-items: center; justify-content: center;
+  border: 1.5px solid var(--border); border-radius: 8px;
+  background: var(--bg-white); color: var(--text-secondary);
+  cursor: pointer; padding: 0;
+  transition: all 0.15s var(--ease);
+}
+.cat-nav-btn svg { width: 14px; height: 14px; }
+.cat-nav-btn.show { display: inline-flex; }
+.cat-nav-btn:hover { color: var(--accent); border-color: var(--accent-mid); background: var(--accent-soft); }
 .cat-tabs {
   display: flex; gap: 6px; overflow-x: auto; flex: 1;
   -webkit-overflow-scrolling: touch; scrollbar-width: none;
