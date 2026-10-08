@@ -857,10 +857,12 @@
     }
     wrap.innerHTML = cells;
 
-    // 月份标签：单元格步长 12px + 3px 间距 = 15px，绝对定位到对应周列
+    // 月份标签：单元格宽度随容器拉伸（1fr），按渲染后的实际列步长绝对定位
+    var colCount = Math.ceil(idx / 7);
+    var step = (wrap.clientWidth + 3) / colCount; // (W + gap) / N = 列宽 + 间距
     var monthsHtml = '';
     monthLabels.forEach(function(m) {
-      monthsHtml += '<span style="left:' + (m.col * 15) + 'px">' + m.name + '</span>';
+      monthsHtml += '<span style="left:' + Math.round(m.col * step) + 'px">' + m.name + '</span>';
     });
     monthsEl.innerHTML = monthsHtml;
   }
@@ -1216,9 +1218,10 @@
     // 视口尺寸变化：列数可能改变，行高缓存失效，重开窗口并保持锚点位置
     var vResizeTimer = null;
     window.addEventListener('resize', function() {
-      if (!virtual.active) return;
       clearTimeout(vResizeTimer);
       vResizeTimer = setTimeout(function() {
+        // 热力图单元格为 1fr 拉伸布局，宽度变化后需重算月份标签位置
+        if (state.showStats) renderHeatmap();
         if (!virtual.active || !virtual.wrap) return;
         // 记录视口顶部所在行的首项作为锚点
         var wrapTop = virtual.wrap.getBoundingClientRect().top + window.scrollY;
